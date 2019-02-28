@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<settings>
+    <!-- General -->
+    <category label="30000">
+        <!-- For the user to mess with -->
+        <setting label="30100" id="view.fanart" type="bool" default="true"/>
+        <setting type="sep"/>
+        <setting label="30101" id="addon.run_setup" type="action" action="RunPlugin(plugin://plugin.audio.audioaddict/setup)"/>
+        <setting label="30102" id="addon.update_all" type="action" action="RunPlugin(plugin://plugin.audio.audioaddict/refresh)"/>
+        <setting label="30103" id="addon.logout" type="action" action="RunPlugin(plugin://plugin.audio.audioaddict/logout)"/>
+    </category>
+</settings>

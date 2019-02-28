@@ -1,0 +1,4 @@
+/.vscode
+
+*.py[co]
+/test.py

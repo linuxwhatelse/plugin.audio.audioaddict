@@ -1,0 +1,120 @@
+# Kodi Media Center language file
+# Addon Name: DI.FM
+# Addon id: plugin.audio.audioaddict
+# Addon Provider: linuxwhatelse
+msgid ""
+msgstr ""
+"Project-Id-Version: plugin.audio.audioaddict[CR]"
+"Report-Msgid-Bugs-To: me@tadly.de[CR]"
+"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE[CR]"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE[CR]"
+"Last-Translator: tadly[CR]"
+"Language-Team: [CR]"
+"MIME-Version: 1.0[CR]"
+"Content-Type: text/plain; charset=UTF-8[CR]"
+"Content-Transfer-Encoding: 8bit[CR]"
+"Language: en[CR]"
+"Plural-Forms: nplurals=2; plural=(n != 1);[CR]"
+
+
+# -- Categories -- 
+msgctxt "#30000"
+msgid "General"
+msgstr ""
+
+
+# -- Settings -- 
+msgctxt "#30100"
+msgid "Show Fanart"
+msgstr ""
+
+msgctxt "#30101"
+msgid "Re-run setup"
+msgstr ""
+
+msgctxt "#30102"
+msgid "Update all networks"
+msgstr ""
+
+msgctxt "#30103"
+msgid "Logout"
+msgstr ""
+
+
+
+# -- Code section -- 
+msgctxt "#30300"
+msgid "Important"
+msgstr ""
+
+msgctxt "#30301"
+msgid "[B]Absolutely No Advertisements![/B][CR]Keep your groove going with no commercial interruptions and enjoy all of your favorite channels without hearing or seeing advertisements.[CR][CR][B]Higher Quality Audio[/B][CR]Premium subscribers enjoy audio quality that is twice as good as the free options. Premium lets you choose between 320k MP3 and 128k AAC options. Compare the sound quality of our Free (64k AAC) and Premium (320k MP3) streams to hear the difference for yourself.[CR][CR][B]Use External Players & Devices[/B][CR]Premium allows you to stream DI.FM channels using popular hardware players including Sonos, Squeezebox, Denon, Phillips, Pioneer, Roku, or any that support vTuner or TuneIn. You can also use audio players like iTunes, Winamp, VLC, and others.[CR][CR][B]Outstanding Portability[/B][CR]Premium works with our suite of native mobile apps for iOS, Android, and Kindle Fire. You can also access premium streams using almost any third-party hardware or software player of your choice."
+msgstr ""
+
+msgctxt "#30302"
+msgid "If you have registered using a Google/Facebook account, make sure to set a custom password within the services \"My Account\" section."
+msgstr ""
+
+msgctxt "#30303"
+msgid "Login"
+msgstr ""
+
+msgctxt "#30304"
+msgid "Login successful"
+msgstr ""
+
+msgctxt "#30305"
+msgid "Enjoy listening to awesome music!"
+msgstr ""
+
+msgctxt "#30306"
+msgid "Logout successful"
+msgstr ""
+
+msgctxt "#30307"
+msgid "Refresh Stations"
+msgstr ""
+
+msgctxt "#30308"
+msgid "Favorites"
+msgstr ""
+
+msgctxt "#30309"
+msgid "Login failed"
+msgstr ""
+
+msgctxt "#30310"
+msgid "Invalid username or password. Try again?"
+msgstr ""
+
+msgctxt "#30311"
+msgid "Go Premium"
+msgstr ""
+
+msgctxt "#30312"
+msgid "Updating Stations..."
+msgstr ""
+
+msgctxt "#30313"
+msgid ""
+msgstr ""
+
+msgctxt "#30314"
+msgid "Updating channels for {}..."
+msgstr ""
+
+msgctxt "#30315"
+msgid "All done!"
+msgstr ""
+
+msgctxt "#30316"
+msgid "Generating tracklist for your listening pleasure..."
+msgstr ""
+
+msgctxt "#30317"
+msgid "Browse shows"
+msgstr ""
+
+msgctxt "#30318"
+msgid "Next page"
+msgstr ""
