@@ -17,13 +17,13 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);[CR]"
 
 
-# -- Categories -- 
+# -- Categories --
 msgctxt "#30000"
 msgid "General"
 msgstr ""
 
 
-# -- Settings -- 
+# -- Settings --
 msgctxt "#30100"
 msgid "Show Fanart"
 msgstr ""
@@ -42,7 +42,7 @@ msgstr ""
 
 
 
-# -- Code section -- 
+# -- Code section --
 msgctxt "#30300"
 msgid "Important"
 msgstr ""
@@ -117,4 +117,12 @@ msgstr ""
 
 msgctxt "#30318"
 msgid "Next page"
+msgstr ""
+
+msgctxt "#30319"
+msgid "E-mail"
+msgstr ""
+
+msgctxt "#30320"
+msgid "Password"
 msgstr ""

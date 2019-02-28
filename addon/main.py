@@ -228,7 +228,7 @@ def play_channel(network, channel, track_id=None, cache=False, init=True):
         utils.log('Building new track.')
         if init:
             diag = xbmcgui.DialogProgressBG()
-        diag.create(utils.translate(30316))
+            diag.create(utils.translate(30316))
 
         track = get_track(network, channel, None, cache, False)
         if init:
@@ -260,8 +260,8 @@ def play_channel(network, channel, track_id=None, cache=False, init=True):
 
         # If we start a new / restart the same channel we have to stop first
         if init:
-            diag.update(100)
             utils.log('Stopping playback and clearing playlist.')
+            diag.update(100)
             player.stop()
             playlist.clear()
             xbmc.sleep(100)
@@ -285,8 +285,7 @@ def play_channel(network, channel, track_id=None, cache=False, init=True):
     item.setPath(addict.AudioAddict.url(asset.get('url', '')))
 
     xbmcplugin.setResolvedUrl(HANDLE, True, item)
-    res = aa.listen_history(channel, track_id)
-    utils.log('listen-history', res)
+    aa.listen_history(channel, track_id)
 
     # Add another item if this is the last one playing
     if playlist.getposition() + 2 >= playlist.size():
@@ -320,13 +319,13 @@ def setup(notice=True, update_cache=False):
     if notice:
         xbmcgui.Dialog().ok(utils.translate(30300), utils.translate(30302))
 
-    k = xbmc.Keyboard(aa.member.get('email', ''), utils.translate(30103))
+    k = xbmc.Keyboard(aa.member.get('email', ''), utils.translate(30319))
     k.doModal()
     if not k.isConfirmed():
         return False
     username = k.getText()
 
-    k = xbmc.Keyboard('', utils.translate(30104), True)
+    k = xbmc.Keyboard('', utils.translate(30320), True)
     k.doModal()
     if not k.isConfirmed():
         return False

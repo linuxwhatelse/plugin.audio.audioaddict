@@ -93,6 +93,9 @@ class AudioAddict:
 
         self.name = NETWORKS[network]['name']
 
+        if not os.path.exists(_cache_dir):
+            os.makedirs(_cache_dir)
+
         self._cache_file = os.path.join(_cache_dir, network + '.json')
         self._ccache_file = os.path.join(_cache_dir, 'common.json')
 
@@ -130,6 +133,12 @@ class AudioAddict:
             self.__cache[self._ccache_file] = cache
         return cache
 
+    def _cache_args(self, cache, force=False):
+        kwargs = {'force': force}
+        if not cache:
+            kwargs['cache'] = None
+        return kwargs
+
     def _read_cache(self, cache_file):
         if not os.path.exists(cache_file):
             return {}
@@ -164,7 +173,6 @@ class AudioAddict:
         if query:
             url += '?{}'.format(query)
 
-        print url
         try:
             res = method(url, auth=auth, data=payload).json()
             if cache:
@@ -221,34 +229,38 @@ class AudioAddict:
         if os.path.exists(self._ccache_file):
             os.remove(self._ccache_file)
 
-    def login(self, username, password, **kwargs):
+    def login(self, username, password, cache=True, force=False):
         payload = {
             'member_session[username]': username,
             'member_session[password]': password,
         }
         self._post('member_sessions', auth=('mobile', 'apps'), payload=payload,
-                   cache_key='user', cache=self._ccache_file, **kwargs)
+                   cache_key='user', cache=self._ccache_file,
+                   **self._cache_args(cache, force))
         return self.is_active
 
-    def channel_filters(self, **kwargs):
-        return self._get('channel_filters', **kwargs)
+    def channel_filters(self, cache=True, force=False):
+        return self._get('channel_filters', **self._cache_args(cache, force))
 
-    def channels(self, styles=None, **kwargs):
+    def channels(self, styles=None, cache=True, force=False):
         if not styles:
             styles = ['default']
 
-        for s in self.channel_filters(**kwargs):
+        for s in self.channel_filters(cache=cache):
             if s['key'] in styles:
                 return s['channels']
+        return []
 
-    def favorites(self, **kwargs):
+    def favorites(self, cache=True, force=False):
         favorites = self._get('members', 'id', 'favorites', 'channels',
-                              cache_key='favorites', **kwargs)
-        ids = [f['channel_id'] for f in favorites]
-        return [c for c in self.channels() if c['id'] in ids]
+                              cache_key='favorites',
+                              **self._cache_args(cache, force))
+
+        ids = [f.get('channel_id') for f in favorites]
+        return [c for c in self.channels() if c.get('id') in ids]
 
     def qualities(self):
-        return self._get('qualities', cache=None)
+        return self._get('qualities', cache=None, force=False)
 
     def listen_history(self, channel, track_id):
         channel_id = self._channel_id(channel)
@@ -260,7 +272,7 @@ class AudioAddict:
             'channel_id': int(channel_id),
         }
 
-        return self._post('listen_history', payload=payload)
+        return self._post('listen_history', payload=payload, cache=None)
 
     def track_history(self, channel):
         channel_id = self._channel_id(channel)
@@ -271,12 +283,16 @@ class AudioAddict:
     def currently_playing(self):
         return self._get('currently_playing', cache=None)
 
-    def shows(self, channel_name, page=1, per_page=25):
+    def tracks(self, track_id):
+        return self._get('tracks', track_id, cache=None)
+
+    def shows(self, channel_name=None, page=1, per_page=10):
         query = {
-            'facets[channel_name][]': channel_name,
             'page': page,
             'per_page': per_page,
         }
+        if channel_name:
+            query['facets[channel_name][]'] = channel_name
 
         return self._get('shows', cache=None, **query)
 
@@ -284,8 +300,10 @@ class AudioAddict:
         return self._get('shows', slug, 'episodes', page=page,
                          per_page=per_page)
 
-    def upcoming(self, limit=10, start_at=None, end_at=None, **kwargs):
-        return self._get('events', 'upcoming', limit=limit, **kwargs)
+    def upcoming(self, limit=10, start_at=None, end_at=None, cache=True,
+                 force=False):
+        return self._get('events', 'upcoming', limit=limit,
+                         **self._cache_args(cache, force))
 
     def track_list(self, channel, tune_in=True):
         channel_id = self._channel_id(channel)
@@ -295,6 +313,9 @@ class AudioAddict:
         return self._get('routines', 'channel', str(channel_id),
                          tune_in=str(tune_in).lower(),
                          audio_token=self.audio_token, cache=None)
+
+    def search(self, query):
+        return self._get('search', q=query, cache=None)
 
     def premium_stream_url(self, channel, quality='mp3_320k'):
         quality = self._network['stream']['quality'][quality]

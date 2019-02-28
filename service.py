@@ -5,7 +5,7 @@ import xbmc
 import xbmcaddon
 from addon import addict, utils
 
-CACHE_UPDATE_INTERVAL = 3600
+CACHE_UPDATE_INTERVAL = 3600 * 3
 PROFILE_DIR = xbmc.translatePath(
     os.path.join(xbmcaddon.Addon().getAddonInfo('profile')))
 
@@ -32,7 +32,7 @@ if __name__ == '__main__':
         try:
             update_cache()
         except Exception as e:
-            utils.log(str(e), lvl=xbmc.LOGERROR)
+            utils.log('Error while updating cache:', str(e), lvl=xbmc.LOGERROR)
 
 
         if monitor.waitForAbort(CACHE_UPDATE_INTERVAL):
