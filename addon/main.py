@@ -198,6 +198,8 @@ def list_track(network, channel, track_id=None, cache=False,
 
     if track_id:
         xbmcplugin.setResolvedUrl(HANDLE, True, item)
+        addict.AudioAddict(PROFILE_DIR, network).listen_history(
+            channel, track_id)
 
         if playlist.getposition() + 2 >= playlist.size():
             utils.log('Adding another track to the playlist...')
@@ -207,8 +209,8 @@ def list_track(network, channel, track_id=None, cache=False,
 
     item_url = utils.build_path('track', network, channel, track.get('id'))
     item.setPath(item_url)
-
     if not add_to_playlist:
+        xbmcplugin.setContent(HANDLE, 'songs')
         utils.list_items([(item_url, item, False)])
     else:
         playlist.add(item_url, item)
