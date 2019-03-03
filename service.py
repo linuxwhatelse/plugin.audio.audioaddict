@@ -1,5 +1,4 @@
 import os
-import time
 
 import xbmc
 import xbmcaddon
@@ -33,7 +32,6 @@ if __name__ == '__main__':
             update_cache()
         except Exception as e:
             utils.log('Error while updating cache:', str(e), lvl=xbmc.LOGERROR)
-
 
         if monitor.waitForAbort(CACHE_UPDATE_INTERVAL):
             break

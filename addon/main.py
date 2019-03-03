@@ -50,6 +50,8 @@ def list_channels(network, style=None):
 
     items = []
     if not style:
+        xbmcplugin.setContent(HANDLE, 'albums')
+
         filters = aa.channel_filters()
         favorites = aa.favorites()
         if favorites:
@@ -81,11 +83,10 @@ def list_channels(network, style=None):
             channels = aa.channels(style)
 
         for channel in channels:
+            item_url = utils.build_path('track', network, channel['key'])
 
             item = xbmcgui.ListItem(channel['name'])
-            item.setInfo('music', {
-                'comment': channel['description'],
-            })
+            item.setPath(item_url)
 
             asset_url = channel.get('asset_url', '')
             item.setArt({
@@ -105,8 +106,7 @@ def list_channels(network, style=None):
             #         utils.build_path('shows', network, channel['key']))),
             # ], True)
 
-            item_url = utils.build_path('listen', network, channel['key'])
-            items.append((item_url, item, False))
+            items.append((item_url, item, True))
 
     utils.list_items(items)
 
@@ -177,6 +177,7 @@ def list_shows(network, channel, slug=None, page=1):
             assets = track.get('content', {}).get('assets', [])
             if not assets:
                 continue
+
             url = addict.AudioAddict.url(assets[0].get('url'))
             items.append((url, item, False))
 
@@ -186,111 +187,31 @@ def list_shows(network, channel, slug=None, page=1):
     utils.list_items(items)
 
 
-def get_track(network, channel, track_id=None, cache=True, pop=False):
-    tracks_file = os.path.join(PROFILE_DIR, 'tracks.json')
-
-    track_list = {}
-    if cache and os.path.exists(tracks_file):
-        with open(tracks_file, 'r') as f:
-            track_list = json.loads(f.read())
-
-    if not track_list.get('tracks'):
-        aa = addict.AudioAddict(PROFILE_DIR, network)
-        track_list = aa.track_list(channel)
-
-    track = None
-    if track_id:
-        for t in track_list['tracks']:
-            if str(t['id']) == track_id:
-                track = t
-                break
-
-    if not track:
-        track = track_list['tracks'][0]
-
-    if pop:
-        track_list['tracks'].remove(track)
-
-    with open(tracks_file, 'w') as f:
-        f.write(json.dumps(track_list, indent=2))
-
-    return track
-
-
-def play_channel(network, channel, track_id=None, cache=False, init=True):
-    aa = addict.AudioAddict(PROFILE_DIR, network)
-
-    player = xbmc.Player()
+def list_track(network, channel, track_id=None, cache=False,
+               add_to_playlist=False):
     playlist = xbmc.PlayList(xbmc.PLAYLIST_MUSIC)
 
-    item = None
-    if not track_id:
-        utils.log('Building new track.')
-        if init:
-            diag = xbmcgui.DialogProgressBG()
-            diag.create(utils.translate(30316))
+    track = utils.get_track(network, channel, None, cache,
+                            (track_id is not None))
 
-        track = get_track(network, channel, None, cache, False)
-        if init:
-            diag.update(50)
+    item = utils.build_track_item(track, True)
 
-        item = xbmcgui.ListItem()
-        item.setPath(
-            utils.build_path('listen', network, channel, track.get('id'),
-                             cache=True, init=False))
-        item.setProperty('IsPlayable', 'true')
+    if track_id:
+        xbmcplugin.setResolvedUrl(HANDLE, True, item)
 
-        # Even if we "Tune in", we don't get a tracklist which is
-        # representative of the live station. Setting the offset is therefore
-        # more of a nuisance than anything else.
-        # Might revisit that sometime later
-        #
-        # offset = track.get('content', {}).get('offset', 0.0)
-        # if offset:
-        #     item.setProperty('StartOffset', str(offset))
-
-        item.setInfo(
-            'music', {
-                'artist': track.get('artist', {}).get('name', ''),
-                'title': track.get('title', ''),
-                'duration': track.get('length'),
-            })
-        thumb = addict.AudioAddict.url(track.get('asset_url'), width=512)
-        item.setArt({'thumb': thumb, 'fanart': thumb})
-
-        # If we start a new / restart the same channel we have to stop first
-        if init:
-            utils.log('Stopping playback and clearing playlist.')
-            diag.update(100)
-            player.stop()
-            playlist.clear()
-            xbmc.sleep(100)
-
-        # Add the track and start playing
-        utils.log('Adding track to playlist:', item.getPath())
-        playlist.add(item.getPath(), listitem=item)
-
-        if init:
-            utils.log('Starting playback.')
-            player.play()
-            diag.close()
+        if playlist.getposition() + 2 >= playlist.size():
+            utils.log('Adding another track to the playlist...')
+            list_track(network, channel, None, True, True)
 
         return
 
-    utils.log('Resolving track:', track_id)
-    track = get_track(network, channel, track_id, cache, True)
-    asset = track.get('content', {}).get('assets', [])[0]
+    item_url = utils.build_path('track', network, channel, track.get('id'))
+    item.setPath(item_url)
 
-    item = xbmcgui.ListItem()
-    item.setPath(addict.AudioAddict.url(asset.get('url', '')))
-
-    xbmcplugin.setResolvedUrl(HANDLE, True, item)
-    aa.listen_history(channel, track_id)
-
-    # Add another item if this is the last one playing
-    if playlist.getposition() + 2 >= playlist.size():
-        utils.log('Adding another track to the playlist.')
-        play_channel(network, channel, None, True, False)
+    if not add_to_playlist:
+        utils.list_items([(item_url, item, False)])
+    else:
+        playlist.add(item_url, item)
 
 
 def update_networks(networks=None):
@@ -376,11 +297,11 @@ def run():
         else:
             update_networks(None)
 
-    elif url.path[0] == 'listen':
-        play_channel(*url.path[1:], **url.query)
-
     elif url.path[0] == 'channels':
         list_channels(*url.path[1:], **url.query)
+
+    elif url.path[0] == 'track':
+        list_track(*url.path[1:], **url.query)
 
     elif url.path[0] == 'shows':
         list_shows(*url.path[1:], **url.query)

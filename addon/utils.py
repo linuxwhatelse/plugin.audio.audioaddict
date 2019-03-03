@@ -1,3 +1,4 @@
+import json
 import os
 import urllib
 import urlparse
@@ -6,11 +7,12 @@ import xbmc
 import xbmcaddon
 import xbmcgui
 import xbmcplugin
-from addon import HANDLE
+from addon import HANDLE, addict
 
 DEFAULT_LOG_LEVEL = xbmc.LOGNOTICE
 
 ADDON = xbmcaddon.Addon()
+PROFILE_DIR = xbmc.translatePath(os.path.join(ADDON.getAddonInfo('profile')))
 
 
 def log(*args, **kwargs):
@@ -67,6 +69,64 @@ def build_path(*args, **kwargs):
         url = '{}?{}'.format(url, kwargs)
 
     return url
+
+
+def get_track(network, channel, track_id=None, cache=True, remove=False):
+    tracks_file = os.path.join(PROFILE_DIR, 'tracks.json')
+
+    track_list = {}
+    if cache and os.path.exists(tracks_file):
+        with open(tracks_file, 'r') as f:
+            track_list = json.loads(f.read())
+
+    if not track_list.get('tracks'):
+        aa = addict.AudioAddict(PROFILE_DIR, network)
+        track_list = aa.track_list(channel)
+
+    track = None
+    if track_id:
+        for t in track_list['tracks']:
+            if str(t['id']) == track_id:
+                track = t
+                break
+
+    if not track:
+        track = track_list['tracks'][0]
+
+    if remove:
+        track_list['tracks'].remove(track)
+
+    with open(tracks_file, 'w') as f:
+        f.write(json.dumps(track_list, indent=2))
+
+    return track
+
+
+def build_track_item(track, set_offset=False):
+    asset = track.get('content', {}).get('assets', [])[0]
+
+    item = xbmcgui.ListItem()
+    item.setPath(addict.AudioAddict.url(asset.get('url', '')))
+    item.setProperty('IsPlayable', 'true')
+
+    # Even if we "Tune in", we don't get a tracklist which is
+    # representative of a live station.
+    # As such, setting the offset is more of a nuisance than anything else.
+    # Might revisit that sometime later
+    if set_offset:
+        item.setProperty('StartOffset',
+                         str(track.get('content', {}).get('offset', 0.0)))
+
+    item.setInfo(
+        'music', {
+            'artist': track.get('artist', {}).get('name', ''),
+            'title': track.get('title', ''),
+            'duration': track.get('length'),
+        })
+    thumb = addict.AudioAddict.url(track.get('asset_url'), width=512)
+    item.setArt({'thumb': thumb, 'fanart': thumb})
+
+    return item
 
 
 def list_items(items, sort_methods=None):
