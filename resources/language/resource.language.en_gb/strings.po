@@ -96,15 +96,15 @@ msgid "Updating Stations..."
 msgstr ""
 
 msgctxt "#30313"
-msgid ""
-msgstr ""
-
-msgctxt "#30314"
 msgid "Updating channels for {}..."
 msgstr ""
 
-msgctxt "#30315"
+msgctxt "#30314"
 msgid "All done!"
+msgstr ""
+
+msgctxt "#30315"
+msgid ""
 msgstr ""
 
 msgctxt "#30316"

@@ -189,7 +189,7 @@ class AudioAddict:
         except Exception:
             return {}
 
-    def _channel_id(self, channel):
+    def get_channel_id(self, channel):
         for c in self.channels():
             if c['key'] == channel:
                 return c['id']
@@ -263,7 +263,7 @@ class AudioAddict:
         return self._get('qualities', cache=None, force=False)
 
     def listen_history(self, channel, track_id):
-        channel_id = self._channel_id(channel)
+        channel_id = self.get_channel_id(channel)
         if channel_id is None:
             return None
 
@@ -275,7 +275,7 @@ class AudioAddict:
         return self._post('listen_history', payload=payload, cache=None)
 
     def track_history(self, channel):
-        channel_id = self._channel_id(channel)
+        channel_id = self.get_channel_id(channel)
         if channel_id is None:
             return None
         return self._get('track_history', 'channel', channel_id, cache=None)
@@ -283,7 +283,7 @@ class AudioAddict:
     def currently_playing(self):
         return self._get('currently_playing', cache=None)
 
-    def tracks(self, track_id):
+    def track(self, track_id):
         return self._get('tracks', track_id, cache=None)
 
     def shows(self, channel_name=None, page=1, per_page=10):
@@ -306,7 +306,7 @@ class AudioAddict:
                          **self._cache_args(cache, force))
 
     def track_list(self, channel, tune_in=True):
-        channel_id = self._channel_id(channel)
+        channel_id = self.get_channel_id(channel)
         if channel_id is None:
             return None
 

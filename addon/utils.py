@@ -71,30 +71,22 @@ def build_path(*args, **kwargs):
     return url
 
 
-def get_track(network, channel, track_id=None, cache=True, remove=False):
+def next_track(network, channel, cache=True):
     tracks_file = os.path.join(PROFILE_DIR, 'tracks.json')
+
+    aa = addict.AudioAddict(PROFILE_DIR, network)
+    channel_id = aa.get_channel_id(channel)
 
     track_list = {}
     if cache and os.path.exists(tracks_file):
         with open(tracks_file, 'r') as f:
             track_list = json.loads(f.read())
 
-    if not track_list.get('tracks'):
-        aa = addict.AudioAddict(PROFILE_DIR, network)
+    if (track_list.get('channel_id') != channel_id
+            or len(track_list.get('tracks')) < 1):
         track_list = aa.track_list(channel)
 
-    track = None
-    if track_id:
-        for t in track_list['tracks']:
-            if str(t['id']) == track_id:
-                track = t
-                break
-
-    if not track:
-        track = track_list['tracks'][0]
-
-    if remove:
-        track_list['tracks'].remove(track)
+    track = track_list['tracks'].pop(0)
 
     with open(tracks_file, 'w') as f:
         f.write(json.dumps(track_list, indent=2))

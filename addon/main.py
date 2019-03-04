@@ -42,7 +42,7 @@ def list_networks():
     utils.list_items(items)
 
 
-def list_channels(network, style=None):
+def list_channels(network, style=None, channel=None):
     show_fanart = ADDON.getSettingBool('view.fanart')
     aa = addict.AudioAddict(PROFILE_DIR, network)
 
@@ -82,13 +82,17 @@ def list_channels(network, style=None):
         else:
             channels = aa.channels(style)
 
-        for channel in channels:
-            item_url = utils.build_path('track', network, channel['key'])
+        # playing = {}
+        # for elem in aa.currently_playing():
+        #     playing[elem.get('channel_key')] = elem.get('track')
 
-            item = xbmcgui.ListItem(channel['name'])
-            item.setPath(item_url)
+        for channel in channels:
+            item_url = utils.build_path('play', network, channel['key'])
 
             asset_url = channel.get('asset_url', '')
+
+            item = xbmcgui.ListItem(channel.get('name'))
+            item.setPath(item_url)
             item.setArt({
                 'thumb': addict.AudioAddict.url(asset_url, width=512),
                 'banner': addict.AudioAddict.url(
@@ -106,7 +110,7 @@ def list_channels(network, style=None):
             #         utils.build_path('shows', network, channel['key']))),
             # ], True)
 
-            items.append((item_url, item, True))
+            items.append((item_url, item, False))
 
     utils.list_items(items)
 
@@ -158,12 +162,14 @@ def list_shows(network, channel, slug=None, page=1):
                                         show['slug'])
             items.append((item_url, item, True))
         has_next = len(shows.get('results', [])) == 100
+
     else:
         xbmcplugin.setContent(HANDLE, 'songs')
         for ep in aa.show_episodes(slug, page):
             tracks = ep.get('tracks', [])
             if not tracks:
                 continue
+
             track = tracks[0]
             item = xbmcgui.ListItem()
             item.setInfo(
@@ -187,37 +193,85 @@ def list_shows(network, channel, slug=None, page=1):
     utils.list_items(items)
 
 
-def list_track(network, channel, track_id=None, cache=False,
-               add_to_playlist=False):
-    playlist = xbmc.PlayList(xbmc.PLAYLIST_MUSIC)
+def play_channel(network, channel):
+    valid_handle = HANDLE != -1
 
-    track = utils.get_track(network, channel, None, cache,
-                            (track_id is not None))
+    diag = None
+    if not valid_handle:
+        diag = xbmcgui.DialogProgressBG()
+        diag.create(utils.translate(30316))
 
-    item = utils.build_track_item(track, True)
+    aa = addict.AudioAddict(PROFILE_DIR, network)
 
-    if track_id:
-        xbmcplugin.setResolvedUrl(HANDLE, True, item)
-        addict.AudioAddict(PROFILE_DIR, network).listen_history(
-            channel, track_id)
+    track = {}
+    for elem in aa.currently_playing():
+        if elem.get('channel_key') != channel:
+            continue
 
-        if playlist.getposition() + 2 >= playlist.size():
-            utils.log('Adding another track to the playlist...')
-            list_track(network, channel, None, True, True)
+        track = elem.get('track', {})
 
-        return
-
+    track = aa.track(str(track.get('id')))
     item_url = utils.build_path('track', network, channel, track.get('id'))
+
+    item = utils.build_track_item(track)
     item.setPath(item_url)
-    if not add_to_playlist:
-        xbmcplugin.setContent(HANDLE, 'songs')
-        utils.list_items([(item_url, item, False)])
+
+    if diag:
+        diag.close()
+
+    if valid_handle:
+        # Item activated through e.g. Chrous2
+        xbmcplugin.setResolvedUrl(HANDLE, True, item)
+
+        # Wait up to 5 sec. for playback to start
+        utils.log('Waiting for player to play something.')
+        player = xbmc.Player()
+        for i in range(10):
+            if player.isPlayingAudio():
+                break
+            xbmc.sleep(250)
+
+        if player.isPlayingAudio():
+            utils.log('Updating infotag')
+            item.setPath(utils.build_path('play', network, channel))
+            player.updateInfoTag(item)
+
     else:
+        # Item activated through Kodi itself
+        utils.log('Manually starting playback')
+        playlist = xbmc.PlayList(xbmc.PLAYLIST_MUSIC)
+        playlist.clear()
         playlist.add(item_url, item)
+
+        xbmc.Player().play()
+
+
+def resolve_track(network, channel, track_id, cache=False):
+    aa = addict.AudioAddict(PROFILE_DIR, network)
+
+    track = aa.track(track_id)
+    item = utils.build_track_item(track)
+
+    xbmcplugin.setResolvedUrl(HANDLE, True, item)
+
+    playlist = xbmc.PlayList(xbmc.PLAYLIST_MUSIC)
+    if playlist.getposition() + 2 >= playlist.size():
+        utils.log('Adding another track to the playlist...')
+        next_track = utils.next_track(network, channel, cache)
+
+        if track.get('id') == next_track.get('id'):
+            next_track = utils.next_track(network, channel)
+
+        next_item = utils.build_track_item(next_track)
+        next_item.setPath(
+            utils.build_path('track', network, channel, next_track.get('id'),
+                             cache=True))
+
+        playlist.add(next_item.getPath(), next_item)
 
 
 def update_networks(networks=None):
-    if networks is None:
+    if not networks:
         networks = addict.NETWORKS.keys()
 
     diag = xbmcgui.DialogProgress()
@@ -227,11 +281,11 @@ def update_networks(networks=None):
         progress = i * 100 / len(networks)
         aa = addict.AudioAddict(PROFILE_DIR, network)
 
-        diag.update(progress, utils.translate(30314).format(aa.name))
+        diag.update(progress, utils.translate(30313).format(aa.name))
         aa.channels(force=True)
         aa.favorites(force=True)
 
-    diag.update(100, utils.translate(30315))
+    diag.update(100, utils.translate(30314))
     diag.close()
 
 
@@ -293,17 +347,17 @@ def run():
         sys.exit(0)
 
     elif url.path[0] == 'refresh':
-        network = url.query.get('network')
-        if network:
-            update_networks([network])
-        else:
-            update_networks(None)
+        network = url.query.get('network', [])
+        update_networks(network)
 
     elif url.path[0] == 'channels':
         list_channels(*url.path[1:], **url.query)
 
+    elif url.path[0] == 'play':
+        play_channel(*url.path[1:], **url.query)
+
     elif url.path[0] == 'track':
-        list_track(*url.path[1:], **url.query)
+        resolve_track(*url.path[1:], **url.query)
 
     elif url.path[0] == 'shows':
         list_shows(*url.path[1:], **url.query)
