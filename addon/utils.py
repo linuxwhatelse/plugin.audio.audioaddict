@@ -137,6 +137,11 @@ def build_track_item(track, set_offset=False):
     return item
 
 
+def go_premium(self):
+    xbmcgui.Dialog().textviewer(utils.translate(30311), utils.translate(30301))
+    ADDON.setSettingInt('addon.last_premium_prompt', int(time.time()))
+
+
 def list_items(items, sort_methods=None):
     if not sort_methods:
         sort_methods = [

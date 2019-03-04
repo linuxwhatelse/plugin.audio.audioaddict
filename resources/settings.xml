@@ -2,6 +2,8 @@
 <settings>
     <!-- General -->
     <category label="30000">
+        <setting label="30104" id="addon.last_premium_prompt" type="number" default="0" visible="false" />
+
         <setting label="30104" id="aa.email" type="text" enable="false"/>
         <setting label="30100" id="view.fanart" type="bool" default="true"/>
         <setting label="30105" id="aa.shows_per_page" type="slider" range="5,1,100" option="int" default="10" />

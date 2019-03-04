@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 
 import xbmc
 import xbmcaddon
@@ -314,8 +315,7 @@ def setup(notice=True, update_cache=False):
 
     utils.notify(utils.translate(30304), utils.translate(30305))
     if not aa.is_premium:
-        xbmcgui.Dialog().textviewer(
-            utils.translate(30311), utils.translate(30301))
+        utils.go_premium()
 
     if update_cache:
         update_networks()
@@ -334,6 +334,10 @@ def run():
 
     # Routing
     if url.path == []:
+        last_prompt = ADDON.getSettingInt('addon.last_premium_prompt')
+        if not aa.is_premium and last_prompt + (3600 * 1) < time.time():
+            utils.go_premium()
+
         list_networks()
 
     elif url.path[0] == 'setup':
