@@ -189,12 +189,12 @@ def list_shows(network, channel, slug=None, page=1):
 def play_channel(network, channel):
     valid_handle = HANDLE != -1
 
+    aa = addict.AudioAddict(PROFILE_DIR, network)
+
     diag = None
     if not valid_handle:
         diag = xbmcgui.DialogProgressBG()
         diag.create(utils.translate(30316))
-
-    aa = addict.AudioAddict(PROFILE_DIR, network)
 
     track = {}
     for elem in aa.currently_playing():
@@ -218,10 +218,10 @@ def play_channel(network, channel):
 
         # Wait up to 5 sec. for playback to start
         player = xbmc.Player()
-        for i in range(10):
-            if player.isPlayingAudio():
+        monitor = xbmc.Monitor()
+        for i in range(20):
+            if player.isPlayingAudio() or monitor.waitForAbort(0.25):
                 break
-            xbmc.sleep(250)
 
         if player.isPlayingAudio():
             item.setPath(utils.build_path('play', network, channel))
@@ -268,13 +268,14 @@ def update_networks(networks=None):
     diag = xbmcgui.DialogProgress()
     diag.create(utils.translate(30312))
 
+    utils.log('Updating network', networks)
     for i, network in enumerate(networks):
         progress = i * 100 / len(networks)
         aa = addict.AudioAddict(PROFILE_DIR, network)
 
         diag.update(progress, utils.translate(30313).format(aa.name))
-        aa.channels(force=True)
-        aa.favorites(force=True)
+        aa.channels(refresh=True)
+        aa.favorites(refresh=True)
 
     diag.update(100, utils.translate(30314))
     diag.close()
@@ -303,7 +304,7 @@ def setup(notice=True, update_cache=False):
         return False
     password = k.getText()
 
-    if not aa.login(username, password, force=True):
+    if not aa.login(username, password, refresh=True):
         if xbmcgui.Dialog().yesno(
                 utils.translate(30309), utils.translate(30310)):
             return setup(False, update_cache)
@@ -317,7 +318,7 @@ def setup(notice=True, update_cache=False):
             utils.translate(30311), utils.translate(30301))
 
     if update_cache:
-        update_networks(None)
+        update_networks()
 
     return True
 
@@ -344,8 +345,11 @@ def run():
         sys.exit(0)
 
     elif url.path[0] == 'refresh':
-        network = url.query.get('network', [])
-        update_networks(network)
+        network = url.query.get('network')
+        if network:
+            update_networks([network])
+        else:
+            update_networks()
 
     elif url.path[0] == 'channels':
         list_channels(*url.path[1:], **url.query)

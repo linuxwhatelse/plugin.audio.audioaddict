@@ -119,32 +119,23 @@ class AudioAddict:
 
     @property
     def _cache(self):
-        cache = self.__cache.get(self._cache_file, {})
-        if not cache:
-            cache = self._read_cache(self._cache_file)
-            self.__cache[self._cache_file] = cache
-        return cache
+        return (self.__cache.get(self._cache_file)
+                or self._read_cache(self._cache_file))
 
     @property
     def _ccache(self):
-        cache = self.__cache.get(self._ccache_file, {})
-        if not cache:
-            cache = self._read_cache(self._ccache_file)
-            self.__cache[self._ccache_file] = cache
-        return cache
-
-    def _cache_args(self, cache, force=False):
-        kwargs = {'force': force}
-        if not cache:
-            kwargs['cache'] = None
-        return kwargs
+        return (self.__cache.get(self._ccache_file)
+                or self._read_cache(self._ccache_file))
 
     def _read_cache(self, cache_file):
         if not os.path.exists(cache_file):
             return {}
 
         with open(cache_file, 'r') as f:
-            return json.loads(f.read())
+            data = json.loads(f.read())
+
+        self.__cache[cache_file] = data
+        return data
 
     def _api_call(self, method, *args, **kwargs):
         auth = kwargs.pop('auth', None)
@@ -152,12 +143,13 @@ class AudioAddict:
 
         cache = kwargs.pop('cache', self._cache_file)
         cache_key = kwargs.pop('cache_key', '_'.join(args))
-        force = kwargs.pop('force', False)
+        refresh = kwargs.pop('refresh', False)
 
-        if not force and cache and os.path.exists(cache):
-            _cache = self._read_cache(cache)
-            if _cache.get(cache_key):
-                return _cache.get(cache_key)
+        if not refresh and cache and os.path.exists(cache):
+            _data = (self.__cache.get(cache, {}).get(cache_key)
+                     or self._read_cache(cache).get(cache_key))
+            if _data:
+                return _data
 
         args = '/'.join([urllib.quote_plus(str(arg)) for arg in args])
         url = '/'.join([
@@ -189,12 +181,6 @@ class AudioAddict:
         except Exception:
             return {}
 
-    def get_channel_id(self, channel):
-        for c in self.channels():
-            if c['key'] == channel:
-                return c['id']
-        return None
-
     def _get(self, *args, **kwargs):
         return self._api_call(self.session.get, *args, **kwargs)
 
@@ -225,42 +211,46 @@ class AudioAddict:
     def audio_token(self):
         return self._ccache.get('user', {}).get('audio_token')
 
-    def logout(self):
-        if os.path.exists(self._ccache_file):
-            os.remove(self._ccache_file)
+    def get_channel_id(self, channel):
+        for c in self.channels():
+            if c['key'] == channel:
+                return c['id']
+        return None
 
-    def login(self, username, password, cache=True, force=False):
+    def login(self, username, password, refresh=False):
         payload = {
             'member_session[username]': username,
             'member_session[password]': password,
         }
         self._post('member_sessions', auth=('mobile', 'apps'), payload=payload,
-                   cache_key='user', cache=self._ccache_file,
-                   **self._cache_args(cache, force))
+                   cache=self._ccache_file, cache_key='user', refresh=refresh)
         return self.is_active
 
-    def channel_filters(self, cache=True, force=False):
-        return self._get('channel_filters', **self._cache_args(cache, force))
+    def logout(self):
+        if os.path.exists(self._ccache_file):
+            os.remove(self._ccache_file)
 
-    def channels(self, styles=None, cache=True, force=False):
+    def channel_filters(self, refresh=False):
+        return self._get('channel_filters', refresh=refresh)
+
+    def channels(self, styles=None, refresh=False):
         if not styles:
             styles = ['default']
 
-        for s in self.channel_filters(cache=cache):
+        for s in self.channel_filters():
             if s['key'] in styles:
                 return s['channels']
         return []
 
-    def favorites(self, cache=True, force=False):
+    def favorites(self, refresh=False):
         favorites = self._get('members', 'id', 'favorites', 'channels',
-                              cache_key='favorites',
-                              **self._cache_args(cache, force))
+                              cache_key='favorites', refresh=refresh)
 
         ids = [f.get('channel_id') for f in favorites]
         return [c for c in self.channels() if c.get('id') in ids]
 
     def qualities(self):
-        return self._get('qualities', cache=None, force=False)
+        return self._get('qualities', cache=None, refresh=False)
 
     def listen_history(self, channel, track_id):
         channel_id = self.get_channel_id(channel)
@@ -300,10 +290,8 @@ class AudioAddict:
         return self._get('shows', slug, 'episodes', page=page,
                          per_page=per_page)
 
-    def upcoming(self, limit=10, start_at=None, end_at=None, cache=True,
-                 force=False):
-        return self._get('events', 'upcoming', limit=limit,
-                         **self._cache_args(cache, force))
+    def upcoming(self, limit=10, start_at=None, end_at=None, refresh=False):
+        return self._get('events', 'upcoming', limit=limit, refresh=refresh)
 
     def track_list(self, channel, tune_in=True):
         channel_id = self.get_channel_id(channel)

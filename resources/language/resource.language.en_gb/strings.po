@@ -75,7 +75,7 @@ msgid "Logout successful"
 msgstr ""
 
 msgctxt "#30307"
-msgid "Refresh Stations"
+msgid "Update Network"
 msgstr ""
 
 msgctxt "#30308"
