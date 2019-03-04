@@ -8,6 +8,7 @@ import requests
 NETWORKS = collections.OrderedDict([
     ('difm', {
         'name': 'Digitally Imported',
+        'has_shows': True,
         'url': 'https://www.di.fm',
         'api': '/_papi/v1/di',
         'stream': {
@@ -21,6 +22,7 @@ NETWORKS = collections.OrderedDict([
     }),
     ('radiotunes', {
         'name': 'RadioTunes',
+        'has_shows': False,
         'url': 'https://www.radiotunes.com',
         'api': '/_papi/v1/radiotunes',
         'stream': {
@@ -34,6 +36,7 @@ NETWORKS = collections.OrderedDict([
     }),
     ('jazzradio', {
         'name': 'JAZZRADIO.com',
+        'has_shows': False,
         'url': 'https://www.jazzradio.com',
         'api': '/_papi/v1/jazzradio',
         'stream': {
@@ -47,6 +50,7 @@ NETWORKS = collections.OrderedDict([
     }),
     ('rockradio', {
         'name': 'ROCKRADIO.com',
+        'has_shows': False,
         'url': 'https://www.rockradio.com',
         'api': '/_papi/v1/rockradio',
         'stream': {
@@ -60,6 +64,7 @@ NETWORKS = collections.OrderedDict([
     }),
     ('classicalradio', {
         'name': 'ClassicalRadio.com',
+        'has_shows': False,
         'url': 'https://www.classicalradio.com',
         'api': '/_papi/v1/classicalradio',
         'stream': {
@@ -116,6 +121,10 @@ class AudioAddict:
             url = 'https:' + url
 
         return url
+
+    @property
+    def network(self):
+        return self._network
 
     @property
     def _cache(self):
@@ -276,15 +285,16 @@ class AudioAddict:
     def track(self, track_id):
         return self._get('tracks', track_id, cache=None)
 
-    def shows(self, channel_name=None, page=1, per_page=10):
+    def shows(self, channel=None, field=None, page=1, per_page=10,
+              refresh=True):
         query = {
             'page': page,
             'per_page': per_page,
         }
-        if channel_name:
-            query['facets[channel_name][]'] = channel_name
+        if channel and field:
+            query['facets[{}][]'.format(field)] = channel
 
-        return self._get('shows', cache=None, **query)
+        return self._get('shows', refresh=refresh, **query)
 
     def show_episodes(self, slug, page=1, per_page=25):
         return self._get('shows', slug, 'episodes', page=page,

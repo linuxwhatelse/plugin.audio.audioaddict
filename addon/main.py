@@ -1,4 +1,3 @@
-import json
 import os
 import sys
 
@@ -51,6 +50,9 @@ def list_channels(network, style=None):
     items = []
     if not style:
         xbmcplugin.setContent(HANDLE, 'albums')
+        if aa.is_premium and aa.network['has_shows']:
+            items.append((utils.build_path('shows', network),
+                          xbmcgui.ListItem(utils.translate(30321)), True))
 
         filters = aa.channel_filters()
         favorites = aa.favorites()
@@ -98,90 +100,90 @@ def list_channels(network, style=None):
                     'fanart': addict.AudioAddict.url(fanart, height=720),
                 })
 
-            # item.addContextMenuItems([
-            #     (utils.translate(30317), 'Container.Update({})'.format(
-            #         utils.build_path('shows', network, channel['key']))),
-            # ], True)
-
             items.append((item_url, item, False))
 
     utils.list_items(items)
 
 
-def list_shows(network, channel, slug=None, page=1):
-    def _set_art(item, show, fanart=True):
-        compact = show.get('images', {}).get('compact', '')
-        item.setArt({
-            'thumb': addict.AudioAddict.url(compact, width=512),
-        })
-
-        if fanart:
-            fanart = show.get('images', {}).get('default', compact)
-            item.setArt({
-                'fanart': addict.AudioAddict.url(fanart, height=720),
-            })
-        return item
-
-    show_fanart = ADDON.getSettingBool('view.fanart')
+def list_shows(network, channel=None, field=None, page=1):
     aa = addict.AudioAddict(PROFILE_DIR, network)
 
-    xbmcplugin.setPluginCategory(HANDLE, aa.name)
+    fanart = ADDON.getSettingBool('view.fanart')
+    per_page = ADDON.getSettingInt('aa.shows_per_page')
 
-    next_page_url = ['shows', network, channel]
-    if slug:
-        next_page_url.append(slug)
-
-    next_page = (
-        utils.build_path(*next_page_url, page=page + 1),
-        xbmcgui.ListItem(utils.translate(30318)),
-        True,
-    )
+    shows = aa.shows(channel, field, page=page, per_page=per_page)
 
     items = []
-    if not slug:
-        xbmcplugin.setContent(HANDLE, 'albums')
-        channel_name = None
-        for c in aa.channels():
-            if c['key'] == channel:
-                channel_name = c['name']
-                break
+    if not channel:
+        facets = sorted(
+            shows.get('metadata', {}).get('facets', []),
+            key=lambda f: f['name'])
 
-        shows = aa.shows(channel_name, page, 100)
+        for facet in facets:
+            item_url = utils.build_path('shows', network, facet.get('name'),
+                                        field=facet.get('field', ''))
+            item = xbmcgui.ListItem(facet.get('label'))
 
-        for show in shows.get('results', []):
-            item = xbmcgui.ListItem(show['name'])
-            item = _set_art(item, show, show_fanart)
-            item_url = utils.build_path('shows', network, channel,
-                                        show['slug'])
             items.append((item_url, item, True))
-        has_next = len(shows.get('results', [])) == 100
 
     else:
-        xbmcplugin.setContent(HANDLE, 'songs')
-        for ep in aa.show_episodes(slug, page):
-            tracks = ep.get('tracks', [])
-            if not tracks:
-                continue
+        utils.log('Fetching shows for:', channel, field)
+        for show in shows.get('results', []):
+            item_url = utils.build_path('episodes', network, show.get('slug'))
 
-            track = tracks[0]
-            item = xbmcgui.ListItem()
-            item.setInfo(
-                'music', {
-                    'title': track.get('display_title'),
-                    'artist': track.get('display_artist'),
-                    'duration': track.get('length'),
-                })
-            item = _set_art(item, ep.get('show'), show_fanart)
+            item = xbmcgui.ListItem(show.get('name'))
+            utils.add_aa_art(item, show, fanart=fanart)
 
-            assets = track.get('content', {}).get('assets', [])
-            if not assets:
-                continue
+            items.append((item_url, item, True))
 
-            url = addict.AudioAddict.url(assets[0].get('url'))
-            items.append((url, item, False))
+        if len(items) >= per_page:
+            items.append((
+                utils.build_path('shows', network, channel, field=field,
+                                 page=page + 1),
+                xbmcgui.ListItem(utils.translate(30318)),
+                True,
+            ))
 
-    if items:
-        items.append(next_page)
+    utils.list_items(items)
+
+
+def list_episodes(network, slug, page=1):
+    aa = addict.AudioAddict(PROFILE_DIR, network)
+
+    fanart = ADDON.getSettingBool('view.fanart')
+    per_page = ADDON.getSettingInt('aa.shows_per_page')
+
+    xbmcplugin.setContent(HANDLE, 'songs')
+
+    items = []
+    for ep in aa.show_episodes(slug, page, per_page):
+        tracks = ep.get('tracks', [])
+        if not tracks:
+            continue
+
+        track = tracks[0]
+        item = xbmcgui.ListItem()
+        item.setInfo(
+            'music', {
+                'title': track.get('display_title'),
+                'artist': track.get('display_artist'),
+                'duration': track.get('length'),
+            })
+        item = utils.add_aa_art(item, ep.get('show'), fanart=fanart)
+
+        assets = track.get('content', {}).get('assets', [])
+        if not assets:
+            continue
+
+        url = addict.AudioAddict.url(assets[0].get('url'))
+        items.append((url, item, False))
+
+    if len(items) >= per_page:
+        items.append((
+            utils.build_path(['episodes', network, slug], page=page + 1),
+            xbmcgui.ListItem(utils.translate(30318)),
+            True,
+        ))
 
     utils.list_items(items)
 
@@ -282,12 +284,10 @@ def update_networks(networks=None):
 
 
 def setup(notice=True, update_cache=False):
-    addon = xbmcaddon.Addon()
-
     aa = addict.AudioAddict(PROFILE_DIR, TEST_LOGIN_NETWORK)
     aa.logout()
 
-    addon.setSetting('aa.email', '')
+    ADDON.setSetting('aa.email', '')
 
     if notice:
         xbmcgui.Dialog().ok(utils.translate(30300), utils.translate(30302))
@@ -310,7 +310,7 @@ def setup(notice=True, update_cache=False):
             return setup(False, update_cache)
         return False
 
-    addon.setSetting('aa.email', username)
+    ADDON.setSetting('aa.email', username)
 
     utils.notify(utils.translate(30304), utils.translate(30305))
     if not aa.is_premium:
@@ -350,15 +350,17 @@ def run():
             update_networks([network])
         else:
             update_networks()
+    elif url.path[0] == 'play':
+        play_channel(*url.path[1:], **url.query)
 
     elif url.path[0] == 'channels':
         list_channels(*url.path[1:], **url.query)
-
-    elif url.path[0] == 'play':
-        play_channel(*url.path[1:], **url.query)
 
     elif url.path[0] == 'track':
         resolve_track(*url.path[1:], **url.query)
 
     elif url.path[0] == 'shows':
         list_shows(*url.path[1:], **url.query)
+
+    elif url.path[0] == 'episodes':
+        list_episodes(*url.path[1:], **url.query)

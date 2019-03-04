@@ -94,6 +94,22 @@ def next_track(network, channel, cache=True):
     return track
 
 
+def add_aa_art(item, elem, thumb_key='compact', fanart_key='default',
+               fanart=True):
+    compact = elem.get('images', {}).get(thumb_key, '')
+    item.setArt({
+        'thumb': addict.AudioAddict.url(compact, width=512),
+    })
+
+    if fanart:
+        art = elem.get('images', {}).get(fanart_key, compact)
+        item.setArt({
+            'fanart': addict.AudioAddict.url(art, height=720),
+        })
+
+    return item
+
+
 def build_track_item(track, set_offset=False):
     asset = track.get('content', {}).get('assets', [])[0]
 

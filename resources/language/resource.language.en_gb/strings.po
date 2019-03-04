@@ -44,6 +44,9 @@ msgctxt "#30104"
 msgid "Logged in as"
 msgstr ""
 
+msgctxt "#30105"
+msgid "Shows/Episodes per page"
+msgstr ""
 
 # -- Code section --
 msgctxt "#30300"
@@ -128,4 +131,8 @@ msgstr ""
 
 msgctxt "#30320"
 msgid "Password"
+msgstr ""
+
+msgctxt "#30321"
+msgid "Mix Shows"
 msgstr ""
