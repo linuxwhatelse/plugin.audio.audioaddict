@@ -42,7 +42,7 @@ def list_networks():
     utils.list_items(items)
 
 
-def list_channels(network, style=None, channel=None):
+def list_channels(network, style=None):
     show_fanart = ADDON.getSettingBool('view.fanart')
     aa = addict.AudioAddict(PROFILE_DIR, network)
 
@@ -65,9 +65,6 @@ def list_channels(network, style=None, channel=None):
         for style in filters:
             item = xbmcgui.ListItem('{} ({})'.format(style['name'],
                                                      len(style['channels'])))
-            item.setInfo('music', {
-                'count': len(style['channels']),
-            })
             item.setArt({
                 'fanart': os.path.join(ADDON_DIR, 'fanart.jpg'),
             })
@@ -82,12 +79,8 @@ def list_channels(network, style=None, channel=None):
         else:
             channels = aa.channels(style)
 
-        # playing = {}
-        # for elem in aa.currently_playing():
-        #     playing[elem.get('channel_key')] = elem.get('track')
-
         for channel in channels:
-            item_url = utils.build_path('play', network, channel['key'])
+            item_url = utils.build_path('play', network, channel.get('key'))
 
             asset_url = channel.get('asset_url', '')
 
@@ -224,7 +217,6 @@ def play_channel(network, channel):
         xbmcplugin.setResolvedUrl(HANDLE, True, item)
 
         # Wait up to 5 sec. for playback to start
-        utils.log('Waiting for player to play something.')
         player = xbmc.Player()
         for i in range(10):
             if player.isPlayingAudio():
@@ -232,13 +224,11 @@ def play_channel(network, channel):
             xbmc.sleep(250)
 
         if player.isPlayingAudio():
-            utils.log('Updating infotag')
             item.setPath(utils.build_path('play', network, channel))
             player.updateInfoTag(item)
 
     else:
         # Item activated through Kodi itself
-        utils.log('Manually starting playback')
         playlist = xbmc.PlayList(xbmc.PLAYLIST_MUSIC)
         playlist.clear()
         playlist.add(item_url, item)
@@ -257,9 +247,10 @@ def resolve_track(network, channel, track_id, cache=False):
     playlist = xbmc.PlayList(xbmc.PLAYLIST_MUSIC)
     if playlist.getposition() + 2 >= playlist.size():
         utils.log('Adding another track to the playlist...')
-        next_track = utils.next_track(network, channel, cache)
 
+        next_track = utils.next_track(network, channel, cache)
         if track.get('id') == next_track.get('id'):
+            # Was the same track as is already playing, get a new one
             next_track = utils.next_track(network, channel)
 
         next_item = utils.build_track_item(next_track)

@@ -124,7 +124,8 @@ def build_track_item(track, set_offset=False):
 def list_items(items, sort_methods=None):
     if not sort_methods:
         sort_methods = [
-            xbmcplugin.SORT_METHOD_UNSORTED, xbmcplugin.SORT_METHOD_LABEL
+            xbmcplugin.SORT_METHOD_UNSORTED,
+            xbmcplugin.SORT_METHOD_LABEL,
         ]
 
     for method in sort_methods:
