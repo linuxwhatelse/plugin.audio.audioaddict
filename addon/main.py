@@ -290,8 +290,12 @@ def update_networks(networks=None):
 
 
 def setup(notice=True, update_cache=False):
+    addon = xbmcaddon.Addon()
+
     aa = addict.AudioAddict(PROFILE_DIR, TEST_LOGIN_NETWORK)
     aa.logout()
+
+    addon.setSetting('aa.email', '')
 
     if notice:
         xbmcgui.Dialog().ok(utils.translate(30300), utils.translate(30302))
@@ -314,6 +318,8 @@ def setup(notice=True, update_cache=False):
             return setup(False, update_cache)
         return False
 
+    addon.setSetting('aa.email', username)
+
     utils.notify(utils.translate(30304), utils.translate(30305))
     if not aa.is_premium:
         xbmcgui.Dialog().textviewer(
@@ -330,7 +336,7 @@ def run():
     utils.log(sys.argv[0] + sys.argv[2])
 
     aa = addict.AudioAddict(PROFILE_DIR, TEST_LOGIN_NETWORK)
-    if not aa.is_active and url.path != ['logout']:
+    if not aa.is_active and url.path[0] not in ['setup', 'logout']:
         if not setup(True, True):
             sys.exit(0)
 

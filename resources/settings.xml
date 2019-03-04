@@ -2,6 +2,7 @@
 <settings>
     <!-- General -->
     <category label="30000">
+        <setting label="30104" id="aa.email" type="text" enable="false"/>
         <setting label="30100" id="view.fanart" type="bool" default="true"/>
         <setting type="sep"/>
         <setting label="30101" id="addon.run_setup" type="action" action="RunPlugin(plugin://plugin.audio.audioaddict/setup)"/>

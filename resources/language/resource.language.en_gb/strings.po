@@ -40,6 +40,9 @@ msgctxt "#30103"
 msgid "Logout"
 msgstr ""
 
+msgctxt "#30104"
+msgid "Logged in as"
+msgstr ""
 
 
 # -- Code section --
