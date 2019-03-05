@@ -33,7 +33,7 @@ def translate(id_):
     return ADDON.getLocalizedString(id_)
 
 
-def parse_url(url):
+def parse_url(url, base=None):
     url = urlparse.urlparse(url)
 
     params = dict(urlparse.parse_qsl(url.query))
@@ -54,8 +54,11 @@ def parse_url(url):
                 pass
 
     url = url._replace(query=params)
-    path_ = [urllib.unquote_plus(e) for e in url.path.strip('/').split('/')]
-    url = url._replace(path=list(filter(None, path_)))
+    path_ = filter(
+        None, [urllib.unquote_plus(e) for e in url.path.strip('/').split('/')])
+    if base and not path_:
+        path_ = [base]
+    url = url._replace(path=list(path_))
 
     return url
 
@@ -95,16 +98,17 @@ def next_track(network, channel, cache=True):
 
 
 def add_aa_art(item, elem, thumb_key='compact', fanart_key='default',
-               fanart=True):
-    compact = elem.get('images', {}).get(thumb_key, '')
+               set_fanart=True):
+    thumb = elem.get('images', {}).get(thumb_key)
+    fanart = elem.get('images', {}).get(fanart_key, thumb)
+
     item.setArt({
-        'thumb': addict.AudioAddict.url(compact, width=512),
+        'thumb': addict.AudioAddict.url(thumb, width=512),
     })
 
-    if fanart:
-        art = elem.get('images', {}).get(fanart_key, compact)
+    if set_fanart:
         item.setArt({
-            'fanart': addict.AudioAddict.url(art, height=720),
+            'fanart': addict.AudioAddict.url(fanart, height=720),
         })
 
     return item

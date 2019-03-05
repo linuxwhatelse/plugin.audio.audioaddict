@@ -134,5 +134,21 @@ msgid "Password"
 msgstr ""
 
 msgctxt "#30321"
+msgid "Channels"
+msgstr ""
+
+msgctxt "#30322"
 msgid "Mix Shows"
+msgstr ""
+
+msgctxt "#30323"
+msgid "Search"
+msgstr ""
+
+msgctxt "#30324"
+msgid "Followed"
+msgstr ""
+
+msgctxt "#30325"
+msgid "By Channel"
 msgstr ""

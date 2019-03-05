@@ -147,6 +147,8 @@ class AudioAddict:
         return data
 
     def _api_call(self, method, *args, **kwargs):
+        args = [str(e) for e in args]
+
         auth = kwargs.pop('auth', None)
         payload = kwargs.pop('payload', None)
 
@@ -160,7 +162,7 @@ class AudioAddict:
             if _data:
                 return _data
 
-        args = '/'.join([urllib.quote_plus(str(arg)) for arg in args])
+        args = '/'.join([urllib.quote_plus(arg) for arg in args])
         url = '/'.join([
             self._network['url'].rstrip('/'),
             self._network['api'].lstrip('/'),
@@ -207,6 +209,10 @@ class AudioAddict:
     @property
     def listen_key(self):
         return self.member.get('listen_key')
+
+    @property
+    def member_id(self):
+        return self.member.get('member_id')
 
     @property
     def is_active(self):
@@ -285,16 +291,23 @@ class AudioAddict:
     def track(self, track_id):
         return self._get('tracks', track_id, cache=None)
 
-    def shows(self, channel=None, field=None, page=1, per_page=10,
+    def shows(self, channel=None, field=None, page=1, per_page=25,
               refresh=True):
-        query = {
-            'page': page,
-            'per_page': per_page,
-        }
-        if channel and field:
+        if any((channel, field)) and not all((channel, field)):
+            raise ValueError('"channel" and "field" are mutually inclusive.')
+
+        path_ = ['shows']
+        query = {'page': page, 'per_page': per_page}
+
+        if all((channel, field)):
             query['facets[{}][]'.format(field)] = channel
 
-        return self._get('shows', refresh=refresh, **query)
+        return self._get(*path_, refresh=refresh, **query)
+
+    def show_followed(self, page=1, per_page=25, refresh=True):
+        query = {'page': page, 'per_page': per_page}
+        return self._get('members', self.member_id, 'followed_items', 'show',
+                         refresh=refresh, **query)
 
     def show_episodes(self, slug, page=1, per_page=25):
         return self._get('shows', slug, 'episodes', page=page,
@@ -308,7 +321,7 @@ class AudioAddict:
         if channel_id is None:
             return None
 
-        return self._get('routines', 'channel', str(channel_id),
+        return self._get('routines', 'channel', channel_id,
                          tune_in=str(tune_in).lower(),
                          audio_token=self.audio_token, cache=None)
 

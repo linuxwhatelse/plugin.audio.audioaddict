@@ -22,28 +22,48 @@ QUALITY_MAP = {
 }
 
 
-def list_networks():
+def list_networks(network=None):
     items = []
-    for key, data in addict.NETWORKS.iteritems():
-        item = xbmcgui.ListItem(data['name'])
-        item.setArt({
-            'thumb': os.path.join(ADDON_DIR, 'resources', 'assets',
-                                  key + '.png'),
-            'fanart': os.path.join(ADDON_DIR, 'fanart.jpg'),
-        })
 
-        item.addContextMenuItems([
-            (utils.translate(30307), 'RunPlugin({})'.format(
-                utils.build_path('refresh', network=key))),
-        ], True)
+    if not network:
+        for key, data in addict.NETWORKS.iteritems():
+            item = xbmcgui.ListItem(data['name'])
+            item.setArt({
+                'thumb': os.path.join(ADDON_DIR, 'resources', 'assets',
+                                      key + '.png'),
+                'fanart': os.path.join(ADDON_DIR, 'fanart.jpg'),
+            })
 
-        items.append((utils.build_path('channels', key), item, True))
+            item.addContextMenuItems([
+                (utils.translate(30307), 'RunPlugin({})'.format(
+                    utils.build_path('refresh', network=key))),
+            ], True)
+
+            items.append((utils.build_path('networks', key), item, True))
+
+    else:
+        aa = addict.AudioAddict(PROFILE_DIR, network)
+
+        xbmcplugin.setPluginCategory(HANDLE, aa.name)
+        xbmcplugin.setContent(HANDLE, 'files')
+
+        # Channels
+        items.append((utils.build_path('channels', network),
+                      xbmcgui.ListItem(utils.translate(30321)), True))
+
+        # Shows
+        if aa.is_premium and aa.network['has_shows']:
+            items.append((utils.build_path('shows', network),
+                          xbmcgui.ListItem(utils.translate(30322)), True))
+
+        # Search
+        # items.append((utils.build_path('search', network),
+        #               xbmcgui.ListItem(utils.translate(30323)), False))
 
     utils.list_items(items)
 
 
 def list_channels(network, style=None):
-    show_fanart = ADDON.getSettingBool('view.fanart')
     aa = addict.AudioAddict(PROFILE_DIR, network)
 
     xbmcplugin.setPluginCategory(HANDLE, aa.name)
@@ -51,9 +71,6 @@ def list_channels(network, style=None):
     items = []
     if not style:
         xbmcplugin.setContent(HANDLE, 'albums')
-        if aa.is_premium and aa.network['has_shows']:
-            items.append((utils.build_path('shows', network),
-                          xbmcgui.ListItem(utils.translate(30321)), True))
 
         filters = aa.channel_filters()
         favorites = aa.favorites()
@@ -82,6 +99,7 @@ def list_channels(network, style=None):
         else:
             channels = aa.channels(style)
 
+        show_fanart = ADDON.getSettingBool('view.fanart')
         for channel in channels:
             item_url = utils.build_path('play', network, channel.get('key'))
 
@@ -89,51 +107,58 @@ def list_channels(network, style=None):
 
             item = xbmcgui.ListItem(channel.get('name'))
             item.setPath(item_url)
-            item.setArt({
-                'thumb': addict.AudioAddict.url(asset_url, width=512),
-                'banner': addict.AudioAddict.url(
-                    channel.get('banner_url', None), height=512),
-            })
 
-            if show_fanart:
-                fanart = channel.get('images', {}).get('compact', asset_url)
-                item.setArt({
-                    'fanart': addict.AudioAddict.url(fanart, height=720),
-                })
+            item = utils.add_aa_art(item, channel, 'default', 'compact',
+                                    set_fanart=show_fanart)
 
             items.append((item_url, item, False))
 
     utils.list_items(items)
 
 
-def list_shows(network, channel=None, field=None, page=1):
+def list_shows(network, filter_=None, channel=None, field=None, followed=False,
+               page=1):
     aa = addict.AudioAddict(PROFILE_DIR, network)
+
+    xbmcplugin.setPluginCategory(HANDLE, aa.name)
 
     fanart = ADDON.getSettingBool('view.fanart')
     per_page = ADDON.getSettingInt('aa.shows_per_page')
 
-    shows = aa.shows(channel, field, page=page, per_page=per_page)
+    if filter_ == 'followed':
+        shows = aa.show_followed(page=page, per_page=per_page)
+
+    elif filter_ == 'channels':
+        _res = aa.shows(channel, field, page=page, per_page=per_page)
+        shows = _res.get('results', [])
+        facets = _res.get('metadata', {}).get('facets', [])
 
     items = []
-    if not channel:
-        facets = sorted(
-            shows.get('metadata', {}).get('facets', []),
-            key=lambda f: f['name'])
+    if not filter_:
+        # Followed Shows
+        items.append((utils.build_path('shows', network, 'followed'),
+                      xbmcgui.ListItem(utils.translate(30324)), True))
+
+        # By Channel
+        items.append((utils.build_path('shows', network, 'channels'),
+                      xbmcgui.ListItem(utils.translate(30325)), True))
+
+    elif filter_ == 'channels' and not all((channel, field)):
+        facets = sorted(facets, key=lambda f: f['name'])
 
         for facet in facets:
-            item_url = utils.build_path('shows', network, facet.get('name'),
-                                        field=facet.get('field', ''))
-            item = xbmcgui.ListItem(facet.get('label'))
-
-            items.append((item_url, item, True))
+            item_url = utils.build_path('shows', network, 'channels',
+                                        facet.get('name'), field=facet.get(
+                                            'field', ''))
+            items.append((item_url, xbmcgui.ListItem(facet.get('label')),
+                          True))
 
     else:
-        utils.log('Fetching shows for:', channel, field)
-        for show in shows.get('results', []):
+        for show in shows:
             item_url = utils.build_path('episodes', network, show.get('slug'))
 
             item = xbmcgui.ListItem(show.get('name'))
-            utils.add_aa_art(item, show, fanart=fanart)
+            item = utils.add_aa_art(item, show, set_fanart=fanart)
 
             items.append((item_url, item, True))
 
@@ -170,7 +195,7 @@ def list_episodes(network, slug, page=1):
                 'artist': track.get('display_artist'),
                 'duration': track.get('length'),
             })
-        item = utils.add_aa_art(item, ep.get('show'), fanart=fanart)
+        item = utils.add_aa_art(item, ep.get('show'), set_fanart=fanart)
 
         assets = track.get('content', {}).get('assets', [])
         if not assets:
@@ -324,8 +349,8 @@ def setup(notice=True, update_cache=False):
 
 
 def run():
-    url = utils.parse_url(sys.argv[0] + sys.argv[2])
     utils.log(sys.argv[0] + sys.argv[2])
+    url = utils.parse_url(sys.argv[0] + sys.argv[2], 'networks')
 
     aa = addict.AudioAddict(PROFILE_DIR, TEST_LOGIN_NETWORK)
     if not aa.is_active and url.path[0] not in ['setup', 'logout']:
@@ -333,14 +358,7 @@ def run():
             sys.exit(0)
 
     # Routing
-    if url.path == []:
-        last_prompt = ADDON.getSettingInt('addon.last_premium_prompt')
-        if not aa.is_premium and last_prompt + (3600 * 1) < time.time():
-            utils.go_premium()
-
-        list_networks()
-
-    elif url.path[0] == 'setup':
+    if url.path[0] == 'setup':
         setup(False, True)
 
     elif url.path[0] == 'logout':
@@ -350,10 +368,15 @@ def run():
 
     elif url.path[0] == 'refresh':
         network = url.query.get('network')
-        if network:
-            update_networks([network])
-        else:
-            update_networks()
+        update_networks(filter([network]))
+
+    elif url.path[0] == 'networks':
+        last_prompt = ADDON.getSettingInt('addon.last_premium_prompt')
+        if not aa.is_premium and last_prompt + (3600 * 1) < time.time():
+            utils.go_premium()
+
+        list_networks(*url.path[1:], **url.query)
+
     elif url.path[0] == 'play':
         play_channel(*url.path[1:], **url.query)
 
