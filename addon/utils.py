@@ -1,5 +1,6 @@
 import json
 import os
+import time
 import urllib
 import urlparse
 
@@ -103,6 +104,7 @@ def add_aa_art(item, elem, thumb_key='compact', fanart_key='default',
     fanart = elem.get('images', {}).get(fanart_key, thumb)
 
     item.setArt({
+        'icon': addict.AudioAddict.url(thumb, width=512),
         'thumb': addict.AudioAddict.url(thumb, width=512),
     })
 
@@ -117,8 +119,11 @@ def add_aa_art(item, elem, thumb_key='compact', fanart_key='default',
 def build_track_item(track, set_offset=False):
     asset = track.get('content', {}).get('assets', [])[0]
 
-    item = xbmcgui.ListItem()
-    item.setPath(addict.AudioAddict.url(asset.get('url', '')))
+    artist = track.get('artist', {}).get('name')
+    title = track.get('title')
+
+    item = xbmcgui.ListItem('{} - {}'.format(artist, title))
+    item.setPath(addict.AudioAddict.url(asset.get('url')))
     item.setProperty('IsPlayable', 'true')
 
     # Even if we "Tune in", we don't get a tracklist which is
@@ -131,8 +136,9 @@ def build_track_item(track, set_offset=False):
 
     item.setInfo(
         'music', {
-            'artist': track.get('artist', {}).get('name', ''),
-            'title': track.get('title', ''),
+            'mediatype': 'music',
+            'artist': artist,
+            'title': title,
             'duration': track.get('length'),
         })
     thumb = addict.AudioAddict.url(track.get('asset_url'), width=512)
@@ -142,7 +148,7 @@ def build_track_item(track, set_offset=False):
 
 
 def go_premium(self):
-    xbmcgui.Dialog().textviewer(utils.translate(30311), utils.translate(30301))
+    xbmcgui.Dialog().textviewer(translate(30311), translate(30301))
     ADDON.setSettingInt('addon.last_premium_prompt', int(time.time()))
 
 
@@ -157,4 +163,4 @@ def list_items(items, sort_methods=None):
         xbmcplugin.addSortMethod(HANDLE, method)
 
     xbmcplugin.addDirectoryItems(HANDLE, items, len(items))
-    xbmcplugin.endOfDirectory(HANDLE)
+    xbmcplugin.endOfDirectory(HANDLE, cacheToDisc=False)
