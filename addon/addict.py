@@ -310,7 +310,7 @@ class AudioAddict:
                          refresh=refresh, **query)
 
     def show_episodes(self, slug, page=1, per_page=25):
-        return self._get('shows', slug, 'episodes', page=page,
+        return self._get('shows', slug, 'episodes', page=page, cache=None,
                          per_page=per_page)
 
     def upcoming(self, limit=10, start_at=None, end_at=None, refresh=False):
@@ -325,8 +325,9 @@ class AudioAddict:
                          tune_in=str(tune_in).lower(),
                          audio_token=self.audio_token, cache=None)
 
-    def search(self, query):
-        return self._get('search', q=query, cache=None)
+    def search(self, query, page=1, per_page=25):
+        query = {'q': query, 'page': page, 'per_page': per_page}
+        return self._get('search', cache=None, **query)
 
     def premium_stream_url(self, channel, quality='mp3_320k'):
         quality = self._network['stream']['quality'][quality]
