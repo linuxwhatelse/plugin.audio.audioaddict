@@ -58,7 +58,7 @@ msgid "[B]Absolutely No Advertisements![/B][CR]Keep your groove going with no co
 msgstr ""
 
 msgctxt "#30302"
-msgid "If you have registered using a Google/Facebook account, make sure to set a custom password within the services \"My Account\" section."
+msgid "If you have registered using a Google/Facebook account, make sure to set a custom password within the services [B]My Account[/B] section."
 msgstr ""
 
 msgctxt "#30303"
@@ -102,7 +102,7 @@ msgid "Updating Stations..."
 msgstr ""
 
 msgctxt "#30313"
-msgid "Updating channels for {}..."
+msgid "Updating channels for [B]{}[/B]..."
 msgstr ""
 
 msgctxt "#30314"

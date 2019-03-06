@@ -239,6 +239,8 @@ class AudioAddict:
     def logout(self):
         if os.path.exists(self._ccache_file):
             os.remove(self._ccache_file)
+        if os.path.exists(self._cache_file):
+            os.remove(self._cache_file)
 
     #
     # --- Wrapper ---

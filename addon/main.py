@@ -419,6 +419,7 @@ def setup(notice=True, update_cache=False):
     utils.notify(utils.translate(30304), utils.translate(30305))
     if not aa.is_premium:
         utils.go_premium()
+        ADDON.setSettingInt('addon.last_premium_prompt', int(time.time()))
 
     if update_cache:
         update_networks()
@@ -440,7 +441,14 @@ def run():
         setup(False, True)
 
     elif url.path[0] == 'logout':
-        aa.logout()
+        for network in addict.NETWORKS.keys():
+            addict.AudioAddict(PROFILE_DIR, network).logout()
+
+        tracks = os.path.join(PROFILE_DIR, 'tracks.json')
+        if os.path.exists(tracks):
+            os.remove(tracks)
+
+        ADDON.setSetting('aa.email', '')
         utils.notify(utils.translate(30306))
         sys.exit(0)
 
@@ -458,6 +466,7 @@ def run():
         last_prompt = ADDON.getSettingInt('addon.last_premium_prompt')
         if not aa.is_premium and last_prompt + (3600 * 1) < time.time():
             utils.go_premium()
+            ADDON.setSettingInt('addon.last_premium_prompt', int(time.time()))
 
         list_networks(*url.path[1:], **url.query)
 
