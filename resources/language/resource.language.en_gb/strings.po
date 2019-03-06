@@ -152,3 +152,19 @@ msgstr ""
 msgctxt "#30325"
 msgid "By Channel"
 msgstr ""
+
+msgctxt "#30326"
+msgid "Add to favorites"
+msgstr ""
+
+msgctxt "#30327"
+msgid "Remove from favorites"
+msgstr ""
+
+msgctxt "#30328"
+msgid "[B]{}[/B] added to favorites."
+msgstr ""
+
+msgctxt "#30329"
+msgid "[B]{}[/B] removed from favorites."
+msgstr ""

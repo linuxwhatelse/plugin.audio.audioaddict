@@ -10,7 +10,7 @@ NETWORKS = collections.OrderedDict([
         'name': 'Digitally Imported',
         'has_shows': True,
         'url': 'https://www.di.fm',
-        'api': '/_papi/v1/di',
+        'api_url': 'https://api.audioaddict.com/v1/di',
         'stream': {
             'url': 'http://prem2.di.fm:80/{channel}{quality}?{listen_key}',
             'quality': {
@@ -24,7 +24,7 @@ NETWORKS = collections.OrderedDict([
         'name': 'RadioTunes',
         'has_shows': False,
         'url': 'https://www.radiotunes.com',
-        'api': '/_papi/v1/radiotunes',
+        'api_url': 'https://api.audioaddict.com/v1/radiotunes',
         'stream': {
             'url': 'http://prem2.radiotunes.com:80/{channel}{quality}?{listen_key}',
             'quality': {
@@ -38,7 +38,7 @@ NETWORKS = collections.OrderedDict([
         'name': 'JAZZRADIO.com',
         'has_shows': False,
         'url': 'https://www.jazzradio.com',
-        'api': '/_papi/v1/jazzradio',
+        'api_url': 'https://api.audioaddict.com/v1/jazzradio',
         'stream': {
             'url': 'http://prem2.jazzradio.com:80/{channel}{quality}?{listen_key}',
             'quality': {
@@ -52,7 +52,7 @@ NETWORKS = collections.OrderedDict([
         'name': 'ROCKRADIO.com',
         'has_shows': False,
         'url': 'https://www.rockradio.com',
-        'api': '/_papi/v1/rockradio',
+        'api_url': 'https://api.audioaddict.com/v1/rockradio',
         'stream': {
             'url': 'http://prem2.rockradio.com:80/{channel}{quality}?{listen_key}',
             'quality': {
@@ -66,7 +66,7 @@ NETWORKS = collections.OrderedDict([
         'name': 'ClassicalRadio.com',
         'has_shows': False,
         'url': 'https://www.classicalradio.com',
-        'api': '/_papi/v1/classicalradio',
+        'api_url': 'https://api.audioaddict.com/v1/classicalradio',
         'stream': {
             'url': 'http://prem2.classicalradio.com:80/{channel}{quality}?{listen_key}',
             'quality': {
@@ -80,7 +80,6 @@ NETWORKS = collections.OrderedDict([
 
 
 class AudioAddict:
-    session = None
     data = None
 
     name = None
@@ -94,7 +93,6 @@ class AudioAddict:
 
     def __init__(self, _cache_dir, network):
         self.__cache = {}
-        self.session = requests.Session()
 
         self.name = NETWORKS[network]['name']
 
@@ -151,6 +149,7 @@ class AudioAddict:
 
         auth = kwargs.pop('auth', None)
         payload = kwargs.pop('payload', None)
+        is_json = kwargs.pop('is_json', True)
 
         cache = kwargs.pop('cache', self._cache_file)
         cache_key = kwargs.pop('cache_key', '_'.join(args))
@@ -163,11 +162,7 @@ class AudioAddict:
                 return _data
 
         args = '/'.join([urllib.quote_plus(arg) for arg in args])
-        url = '/'.join([
-            self._network['url'].rstrip('/'),
-            self._network['api'].lstrip('/'),
-            args,
-        ])
+        url = '/'.join([self._network['api_url'].rstrip('/'), args])
 
         if 'api_key' not in kwargs and self.api_key:
             kwargs['api_key'] = self.api_key
@@ -177,26 +172,35 @@ class AudioAddict:
             url += '?{}'.format(query)
 
         try:
-            res = method(url, auth=auth, data=payload).json()
+            data = {'json': payload}
+            if not is_json:
+                data = {'data': payload}
+
+            res = method(url, auth=auth, **data)
+
             if cache:
                 _cache = self._read_cache(cache)
-                _cache[cache_key] = res
+                _cache[cache_key] = res.json()
 
                 self.__cache[cache] = _cache
 
                 with open(cache, 'w') as f:
                     f.write(json.dumps(_cache, indent=2))
 
-            return res
+            return res.json()
 
         except Exception:
             return {}
 
     def _get(self, *args, **kwargs):
-        return self._api_call(self.session.get, *args, **kwargs)
+        return self._api_call(requests.get, *args, **kwargs)
 
     def _post(self, *args, **kwargs):
-        return self._api_call(self.session.post, *args, **kwargs)
+        return self._api_call(requests.post, *args, auth=('mobile', 'apps'),
+                              **kwargs)
+
+    def _delete(self, *args, **kwargs):
+        return self._api_call(requests.delete, *args, **kwargs)
 
     @property
     def member(self):
@@ -211,10 +215,6 @@ class AudioAddict:
         return self.member.get('listen_key')
 
     @property
-    def member_id(self):
-        return self.member.get('member_id')
-
-    @property
     def is_active(self):
         return self.member.get('active', False)
 
@@ -223,76 +223,69 @@ class AudioAddict:
         return self.member.get('user_type') == 'premium'
 
     @property
+    def member_id(self):
+        return self._ccache.get('user', {}).get('member_id')
+
+    @property
     def audio_token(self):
         return self._ccache.get('user', {}).get('audio_token')
 
     def get_channel_id(self, channel):
-        for c in self.channels():
+        for c in self.get_channels():
             if c['key'] == channel:
                 return c['id']
         return None
-
-    def login(self, username, password, refresh=False):
-        payload = {
-            'member_session[username]': username,
-            'member_session[password]': password,
-        }
-        self._post('member_sessions', auth=('mobile', 'apps'), payload=payload,
-                   cache=self._ccache_file, cache_key='user', refresh=refresh)
-        return self.is_active
 
     def logout(self):
         if os.path.exists(self._ccache_file):
             os.remove(self._ccache_file)
 
-    def channel_filters(self, refresh=False):
-        return self._get('channel_filters', refresh=refresh)
-
-    def channels(self, styles=None, refresh=False):
+    #
+    # --- Wrapper ---
+    #
+    def get_channels(self, styles=None, refresh=False):
         if not styles:
             styles = ['default']
 
-        for s in self.channel_filters():
+        for s in self.get_channel_filters():
             if s['key'] in styles:
                 return s['channels']
         return []
 
-    def favorites(self, refresh=False):
-        favorites = self._get('members', 'id', 'favorites', 'channels',
-                              cache_key='favorites', refresh=refresh)
+    def get_favorite_channels(self, refresh=False):
+        ids = [
+            f.get('channel_id') for f in self.get_favorites(refresh=refresh)
+        ]
+        channels = {c.get('id'): c for c in self.get_channels()}
+        return [channels.get(i) for i in ids]
 
-        ids = [f.get('channel_id') for f in favorites]
-        return [c for c in self.channels() if c.get('id') in ids]
+    #
+    # --- Get ---
+    #
+    def get_channel_filters(self, refresh=False):
+        return self._get('channel_filters', refresh=refresh)
 
-    def qualities(self):
+    def get_favorites(self, refresh=False):
+        return self._get('members', 'id', 'favorites', 'channels',
+                         cache_key='favorites', refresh=refresh)
+
+    def get_qualities(self):
         return self._get('qualities', cache=None, refresh=False)
 
-    def listen_history(self, channel, track_id):
-        channel_id = self.get_channel_id(channel)
-        if channel_id is None:
-            return None
-
-        payload = {
-            'track_id': int(track_id),
-            'channel_id': int(channel_id),
-        }
-
-        return self._post('listen_history', payload=payload, cache=None)
-
-    def track_history(self, channel):
+    def get_track_history(self, channel):
         channel_id = self.get_channel_id(channel)
         if channel_id is None:
             return None
         return self._get('track_history', 'channel', channel_id, cache=None)
 
-    def currently_playing(self):
+    def get_currently_playing(self):
         return self._get('currently_playing', cache=None)
 
-    def track(self, track_id):
+    def get_track(self, track_id):
         return self._get('tracks', track_id, cache=None)
 
-    def shows(self, channel=None, field=None, page=1, per_page=25,
-              refresh=True):
+    def get_shows(self, channel=None, field=None, page=1, per_page=25,
+                  refresh=True):
         if any((channel, field)) and not all((channel, field)):
             raise ValueError('"channel" and "field" are mutually inclusive.')
 
@@ -304,19 +297,20 @@ class AudioAddict:
 
         return self._get(*path_, refresh=refresh, **query)
 
-    def show_followed(self, page=1, per_page=25, refresh=True):
+    def get_shows_followed(self, page=1, per_page=25, refresh=True):
         query = {'page': page, 'per_page': per_page}
         return self._get('members', self.member_id, 'followed_items', 'show',
                          refresh=refresh, **query)
 
-    def show_episodes(self, slug, page=1, per_page=25):
+    def get_show_episodes(self, slug, page=1, per_page=25):
         return self._get('shows', slug, 'episodes', page=page, cache=None,
                          per_page=per_page)
 
-    def upcoming(self, limit=10, start_at=None, end_at=None, refresh=False):
+    def get_upcoming(self, limit=10, start_at=None, end_at=None,
+                     refresh=False):
         return self._get('events', 'upcoming', limit=limit, refresh=refresh)
 
-    def track_list(self, channel, tune_in=True):
+    def get_track_list(self, channel, tune_in=True):
         channel_id = self.get_channel_id(channel)
         if channel_id is None:
             return None
@@ -329,7 +323,61 @@ class AudioAddict:
         query = {'q': query, 'page': page, 'per_page': per_page}
         return self._get('search', cache=None, **query)
 
-    def premium_stream_url(self, channel, quality='mp3_320k'):
+    def get_premium_stream_url(self, channel, quality='mp3_320k'):
         quality = self._network['stream']['quality'][quality]
         return self._network['stream']['url'].format(
             channel=channel, quality=quality, listen_key=self.listen_key)
+
+    #
+    # --- Post ---
+    #
+    def login(self, username, password, refresh=False):
+        payload = {
+            'member_session[username]': username,
+            'member_session[password]': password,
+        }
+        self._post('member_sessions', payload=payload, is_json=False,
+                   cache=self._ccache_file, cache_key='user', refresh=refresh)
+        return self.is_active
+
+    def post_listen_history(self, channel, track_id):
+        channel_id = self.get_channel_id(channel)
+        if channel_id is None:
+            return None
+
+        payload = {
+            'track_id': int(track_id),
+            'channel_id': int(channel_id),
+        }
+
+        return self._post('listen_history', payload=payload, cache=None)
+
+    def manage_favorites(self, add=None, remove=None):
+        if not add:
+            add = []
+
+        if not remove:
+            remove = []
+
+        favorites = self.get_favorites(refresh=True)
+
+        # Remove favorites
+        favorites = [f for f in favorites if f['channel_id'] not in remove]
+
+        # Add new favorites
+        favorites.extend([{'channel_id': c, 'position': 0} for c in add])
+
+        # Fix position
+        for i, fav in enumerate(favorites):
+            fav['position'] = i
+
+        return self._post('members', self.member_id, 'favorites', 'channels',
+                          payload={'favorites': favorites}, cache=None)
+
+    def add_favorite(self, channel):
+        channel_id = self.get_channel_id(channel)
+        return self.manage_favorites(add=[channel_id])
+
+    def remove_favorite(self, channel):
+        channel_id = self.get_channel_id(channel)
+        return self.manage_favorites(remove=[channel_id])

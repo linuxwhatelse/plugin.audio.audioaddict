@@ -72,8 +72,8 @@ def list_channels(network, style=None, channels=None, do_list=True):
     if not any((style, channels)):
         xbmcplugin.setContent(HANDLE, 'albums')
 
-        filters = aa.channel_filters()
-        favorites = aa.favorites()
+        filters = aa.get_channel_filters()
+        favorites = aa.get_favorite_channels()
         if favorites:
             filters.insert(
                 0, {
@@ -96,11 +96,13 @@ def list_channels(network, style=None, channels=None, do_list=True):
 
         if not channels:
             if style == 'favorites':
-                channels = aa.favorites()
+                channels = aa.get_favorite_channels()
             else:
-                channels = aa.channels(style)
+                channels = aa.get_channels(style)
 
         show_fanart = ADDON.getSettingBool('view.fanart')
+
+        favorites = [f['channel_id'] for f in aa.get_favorites()]
         for channel in channels:
             item_url = utils.build_path('play', network, channel.get('key'))
 
@@ -109,6 +111,22 @@ def list_channels(network, style=None, channels=None, do_list=True):
 
             item = utils.add_aa_art(item, channel, 'default', 'compact',
                                     set_fanart=show_fanart)
+
+            if channel.get('id') not in favorites:
+                # Add to favorites
+                item.addContextMenuItems([
+                    (utils.translate(30326), 'RunPlugin({})'.format(
+                        utils.build_path('favorite', network, 'add',
+                                         channel.get('key')))),
+                ], True)
+            else:
+                # Remove from favorites
+                item.addContextMenuItems([
+                    (utils.translate(30327), 'RunPlugin({})'.format(
+                        utils.build_path('favorite', network, 'remove',
+                                         channel.get('key')))),
+                ], True)
+
             items.append((item_url, item, False))
 
     if not do_list:
@@ -125,10 +143,10 @@ def list_shows(network, filter_=None, channel=None, field=None, shows=None,
     per_page = ADDON.getSettingInt('aa.shows_per_page')
 
     if filter_ == 'followed':
-        shows = aa.show_followed(page=page, per_page=per_page)
+        shows = aa.get_shows_followed(page=page, per_page=per_page)
 
     elif filter_ == 'channels':
-        _res = aa.shows(channel, field, page=page, per_page=per_page)
+        _res = aa.get_shows(channel, field, page=page, per_page=per_page)
         shows = _res.get('results', [])
         facets = _res.get('metadata', {}).get('facets', [])
 
@@ -184,7 +202,7 @@ def list_episodes(network, slug, page=1, do_list=True):
     xbmcplugin.setContent(HANDLE, 'songs')
 
     items = []
-    for ep in aa.show_episodes(slug, page, per_page):
+    for ep in aa.get_show_episodes(slug, page, per_page):
         tracks = ep.get('tracks', [])
         if not tracks:
             continue
@@ -216,6 +234,26 @@ def list_episodes(network, slug, page=1, do_list=True):
     if not do_list:
         return items
     utils.list_items(items)
+
+
+def favorite(network, action, channel):
+    aa = addict.AudioAddict(PROFILE_DIR, network)
+
+    channel_name = None
+    for chan in aa.get_channels():
+        if chan.get('key') == channel:
+            channel_name = chan.get('name')
+            break
+
+    if action == 'add':
+        aa.add_favorite(channel)
+        utils.notify(utils.translate(30328).format(channel_name))
+
+    elif action == 'remove':
+        aa.remove_favorite(channel)
+        utils.notify(utils.translate(30329).format(channel_name))
+
+    xbmc.executebuiltin('Container.Refresh')
 
 
 def search(network, query=None, filter_=None, page=1):
@@ -278,13 +316,13 @@ def play_channel(network, channel):
         diag.create(utils.translate(30316))
 
     track = {}
-    for elem in aa.currently_playing():
+    for elem in aa.get_currently_playing():
         if elem.get('channel_key') != channel:
             continue
 
         track = elem.get('track', {})
 
-    track = aa.track(track.get('id'))
+    track = aa.get_track(track.get('id'))
     item_url = utils.build_path('track', network, channel, track.get('id'))
 
     item = utils.build_track_item(track)
@@ -309,7 +347,7 @@ def play_channel(network, channel):
 def resolve_track(network, channel, track_id, cache=False):
     aa = addict.AudioAddict(PROFILE_DIR, network)
 
-    track = aa.track(track_id)
+    track = aa.get_track(track_id)
     item = utils.build_track_item(track)
 
     xbmcplugin.setResolvedUrl(HANDLE, True, item)
@@ -351,8 +389,8 @@ def update_networks(networks=None):
         aa = addict.AudioAddict(PROFILE_DIR, network)
 
         diag.update(progress, utils.translate(30313).format(aa.name))
-        aa.channels(refresh=True)
-        aa.favorites(refresh=True)
+        aa.get_channels(refresh=True)
+        aa.get_favorite_channels(refresh=True)
 
     diag.update(100, utils.translate(30314))
     diag.close()
@@ -406,18 +444,21 @@ def run():
         if not setup(True, True):
             sys.exit(0)
 
-    # Routing
+    # --- Routing ---
     if url.path[0] == 'setup':
         setup(False, True)
 
     elif url.path[0] == 'logout':
         aa.logout()
-        utils.notify(utils.translate(30306), '')
+        utils.notify(utils.translate(30306))
         sys.exit(0)
 
     elif url.path[0] == 'refresh':
         network = url.query.get('network')
-        update_networks(filter([network]))
+        update_networks(filter(None, [network]))
+
+    elif url.path[0] == 'favorite':
+        favorite(*url.path[1:], **url.query)
 
     elif url.path[0] == 'search':
         search(*url.path[1:], **url.query)
@@ -430,7 +471,6 @@ def run():
         list_networks(*url.path[1:], **url.query)
 
     elif url.path[0] == 'play':
-        utils.log('calling play channel')
         play_channel(*url.path[1:], **url.query)
 
     elif url.path[0] == 'channels':

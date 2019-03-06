@@ -17,10 +17,10 @@ def update_cache():
             continue
 
         utils.log('Updating channels for', network)
-        aa.channels(refresh=True)
+        aa.get_channels(refresh=True)
 
         utils.log('Updating favorites for', network)
-        aa.favorites(refresh=True)
+        aa.get_favorite_channels(refresh=True)
 
 
 if __name__ == '__main__':

@@ -23,7 +23,7 @@ def log(*args, **kwargs):
              level=level)
 
 
-def notify(title, message, icon=None, display_time=5000):
+def notify(title, message='', icon=None, display_time=5000):
     if not icon:
         icon = ADDON.getAddonInfo('icon')
 
@@ -88,7 +88,7 @@ def next_track(network, channel, cache=True):
 
     if (track_list.get('channel_id') != channel_id
             or len(track_list.get('tracks')) < 1):
-        track_list = aa.track_list(channel)
+        track_list = aa.get_track_list(channel)
 
     track = track_list['tracks'].pop(0)
 
@@ -131,8 +131,8 @@ def build_track_item(track, set_offset=False):
     # As such, setting the offset is more of a nuisance than anything else.
     # Might revisit that sometime later
     if set_offset:
-        item.setProperty('StartOffset',
-                         str(track.get('content', {}).get('offset', 0.0)))
+        offset = str(track.get('content', {}).get('offset', 0.0))
+        item.setProperty('StartOffset', offset)
 
     item.setInfo(
         'music', {
