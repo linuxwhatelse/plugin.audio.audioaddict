@@ -25,7 +25,7 @@ msgstr ""
 
 # -- Settings --
 msgctxt "#30100"
-msgid "Show Fanart"
+msgid "Add extra fanart"
 msgstr ""
 
 msgctxt "#30101"

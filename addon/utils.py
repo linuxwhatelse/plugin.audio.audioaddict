@@ -13,6 +13,8 @@ from addon import HANDLE, addict
 DEFAULT_LOG_LEVEL = xbmc.LOGNOTICE
 
 ADDON = xbmcaddon.Addon()
+
+ADDON_DIR = xbmc.translatePath(ADDON.getAddonInfo('path'))
 PROFILE_DIR = xbmc.translatePath(os.path.join(ADDON.getAddonInfo('profile')))
 
 
@@ -98,8 +100,7 @@ def next_track(network, channel, cache=True):
     return track
 
 
-def add_aa_art(item, elem, thumb_key='compact', fanart_key='default',
-               set_fanart=True):
+def add_aa_art(item, elem, thumb_key='compact', fanart_key='default'):
     thumb = elem.get('images', {}).get(thumb_key)
     fanart = elem.get('images', {}).get(fanart_key, thumb)
 
@@ -108,7 +109,7 @@ def add_aa_art(item, elem, thumb_key='compact', fanart_key='default',
         'thumb': addict.AudioAddict.url(thumb, width=512),
     })
 
-    if set_fanart:
+    if ADDON.getSettingBool('view.fanart'):
         item.setArt({
             'fanart': addict.AudioAddict.url(fanart, height=720),
         })
@@ -161,6 +162,13 @@ def list_items(items, sort_methods=None):
 
     for method in sort_methods:
         xbmcplugin.addSortMethod(HANDLE, method)
+
+    for url, item, is_folder in items:
+        if item.getArt('fanart'):
+            continue
+        item.setArt({
+            'fanart': os.path.join(ADDON_DIR, 'fanart.jpg'),
+        })
 
     xbmcplugin.addDirectoryItems(HANDLE, items, len(items))
     xbmcplugin.endOfDirectory(HANDLE, cacheToDisc=False)

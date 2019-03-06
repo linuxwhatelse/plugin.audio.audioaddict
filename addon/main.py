@@ -31,7 +31,6 @@ def list_networks(network=None, do_list=True):
             item.setArt({
                 'thumb': os.path.join(ADDON_DIR, 'resources', 'assets',
                                       key + '.png'),
-                'fanart': os.path.join(ADDON_DIR, 'fanart.jpg'),
             })
 
             item.addContextMenuItems([
@@ -85,9 +84,6 @@ def list_channels(network, style=None, channels=None, do_list=True):
         for style in filters:
             item = xbmcgui.ListItem('{} ({})'.format(style['name'],
                                                      len(style['channels'])))
-            item.setArt({
-                'fanart': os.path.join(ADDON_DIR, 'fanart.jpg'),
-            })
             items.append((utils.build_path('channels', network, style['key']),
                           item, True))
 
@@ -100,8 +96,6 @@ def list_channels(network, style=None, channels=None, do_list=True):
             else:
                 channels = aa.get_channels(style)
 
-        show_fanart = ADDON.getSettingBool('view.fanart')
-
         favorites = [f['channel_id'] for f in aa.get_favorites()]
         for channel in channels:
             item_url = utils.build_path('play', network, channel.get('key'))
@@ -109,8 +103,7 @@ def list_channels(network, style=None, channels=None, do_list=True):
             item = xbmcgui.ListItem(channel.get('name'))
             item.setPath(item_url)
 
-            item = utils.add_aa_art(item, channel, 'default', 'compact',
-                                    set_fanart=show_fanart)
+            item = utils.add_aa_art(item, channel, 'default', 'compact')
 
             if channel.get('id') not in favorites:
                 # Add to favorites
@@ -139,7 +132,6 @@ def list_shows(network, filter_=None, channel=None, field=None, shows=None,
     aa = addict.AudioAddict(PROFILE_DIR, network)
     xbmcplugin.setPluginCategory(HANDLE, aa.name)
 
-    fanart = ADDON.getSettingBool('view.fanart')
     per_page = ADDON.getSettingInt('aa.shows_per_page')
 
     if filter_ == 'followed':
@@ -156,7 +148,7 @@ def list_shows(network, filter_=None, channel=None, field=None, shows=None,
             item_url = utils.build_path('episodes', network, show.get('slug'))
 
             item = xbmcgui.ListItem(show.get('name'))
-            item = utils.add_aa_art(item, show, set_fanart=fanart)
+            item = utils.add_aa_art(item, show)
 
             items.append((item_url, item, True))
 
@@ -196,7 +188,6 @@ def list_episodes(network, slug, page=1, do_list=True):
     aa = addict.AudioAddict(PROFILE_DIR, network)
     xbmcplugin.setPluginCategory(HANDLE, aa.name)
 
-    fanart = ADDON.getSettingBool('view.fanart')
     per_page = ADDON.getSettingInt('aa.shows_per_page')
 
     xbmcplugin.setContent(HANDLE, 'songs')
@@ -215,7 +206,7 @@ def list_episodes(network, slug, page=1, do_list=True):
                 'artist': track.get('display_artist'),
                 'duration': track.get('length'),
             })
-        item = utils.add_aa_art(item, ep.get('show'), set_fanart=fanart)
+        item = utils.add_aa_art(item, ep.get('show'))
 
         assets = track.get('content', {}).get('assets', [])
         if not assets:
