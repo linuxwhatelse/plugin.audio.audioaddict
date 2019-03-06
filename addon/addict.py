@@ -261,6 +261,14 @@ class AudioAddict:
         channels = {c.get('id'): c for c in self.get_channels()}
         return [channels.get(i) for i in ids]
 
+    def add_favorite(self, channel):
+        channel_id = self.get_channel_id(channel)
+        return self.manage_favorites(add=[channel_id])
+
+    def remove_favorite(self, channel):
+        channel_id = self.get_channel_id(channel)
+        return self.manage_favorites(remove=[channel_id])
+
     #
     # --- Get ---
     #
@@ -268,7 +276,7 @@ class AudioAddict:
         return self._get('channel_filters', refresh=refresh)
 
     def get_favorites(self, refresh=False):
-        return self._get('members', 'id', 'favorites', 'channels',
+        return self._get('members', self.member_id, 'favorites', 'channels',
                          cache_key='favorites', refresh=refresh)
 
     def get_qualities(self):
@@ -318,8 +326,7 @@ class AudioAddict:
             return None
 
         return self._get('routines', 'channel', channel_id,
-                         tune_in=str(tune_in).lower(),
-                         audio_token=self.audio_token, cache=None)
+                         tune_in=str(tune_in).lower(), cache=None)
 
     def search(self, query, page=1, per_page=25):
         query = {'q': query, 'page': page, 'per_page': per_page}
@@ -342,17 +349,13 @@ class AudioAddict:
                    cache=self._ccache_file, cache_key='user', refresh=refresh)
         return self.is_active
 
-    def post_listen_history(self, channel, track_id):
+    def add_listen_history(self, channel, track_id):
         channel_id = self.get_channel_id(channel)
         if channel_id is None:
             return None
 
-        payload = {
-            'track_id': int(track_id),
-            'channel_id': int(channel_id),
-        }
-
-        return self._post('listen_history', payload=payload, cache=None)
+        return self._post('listen_history', channel_id=channel_id,
+                          track_id=track_id, audio_token=self.audio_token)
 
     def manage_favorites(self, add=None, remove=None):
         if not add:
@@ -375,11 +378,3 @@ class AudioAddict:
 
         return self._post('members', self.member_id, 'favorites', 'channels',
                           payload={'favorites': favorites}, cache=None)
-
-    def add_favorite(self, channel):
-        channel_id = self.get_channel_id(channel)
-        return self.manage_favorites(add=[channel_id])
-
-    def remove_favorite(self, channel):
-        channel_id = self.get_channel_id(channel)
-        return self.manage_favorites(remove=[channel_id])

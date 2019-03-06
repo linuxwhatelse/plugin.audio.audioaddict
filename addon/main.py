@@ -306,17 +306,10 @@ def play_channel(network, channel):
         diag = xbmcgui.DialogProgressBG()
         diag.create(utils.translate(30316))
 
-    track = {}
-    for elem in aa.get_currently_playing():
-        if elem.get('channel_key') != channel:
-            continue
-
-        track = elem.get('track', {})
-
-    track = aa.get_track(track.get('id'))
+    track = utils.next_track(network, channel, False, False)
     item_url = utils.build_path('track', network, channel, track.get('id'))
 
-    item = utils.build_track_item(track)
+    item = utils.build_track_item(track, True)
     item.setPath(item_url)
 
     if diag:
@@ -338,10 +331,11 @@ def play_channel(network, channel):
 def resolve_track(network, channel, track_id, cache=False):
     aa = addict.AudioAddict(PROFILE_DIR, network)
 
-    track = aa.get_track(track_id)
+    track = utils.next_track(network, channel, True)
     item = utils.build_track_item(track)
 
     xbmcplugin.setResolvedUrl(HANDLE, True, item)
+    aa.add_listen_history(channel, track.get('id'))
 
     add_track(network, channel, track, cache)
 

@@ -77,7 +77,7 @@ def build_path(*args, **kwargs):
     return url
 
 
-def next_track(network, channel, cache=True):
+def next_track(network, channel, cache=True, pop=True):
     tracks_file = os.path.join(PROFILE_DIR, 'tracks.json')
 
     aa = addict.AudioAddict(PROFILE_DIR, network)
@@ -92,7 +92,10 @@ def next_track(network, channel, cache=True):
             or len(track_list.get('tracks')) < 1):
         track_list = aa.get_track_list(channel)
 
-    track = track_list['tracks'].pop(0)
+    if pop:
+        track = track_list['tracks'].pop(0)
+    else:
+        track = track_list['tracks'][0]
 
     with open(tracks_file, 'w') as f:
         f.write(json.dumps(track_list, indent=2))
@@ -122,28 +125,27 @@ def build_track_item(track, set_offset=False):
 
     artist = track.get('artist', {}).get('name')
     title = track.get('title')
+    duration = track.get('length'),
+    offset = track.get('content', {}).get('offset', 0)
 
     item = xbmcgui.ListItem('{} - {}'.format(artist, title))
     item.setPath(addict.AudioAddict.url(asset.get('url')))
-    item.setProperty('IsPlayable', 'true')
-
-    # Even if we "Tune in", we don't get a tracklist which is
-    # representative of a live station.
-    # As such, setting the offset is more of a nuisance than anything else.
-    # Might revisit that sometime later
-    if set_offset:
-        offset = str(track.get('content', {}).get('offset', 0.0))
-        item.setProperty('StartOffset', offset)
 
     item.setInfo(
         'music', {
             'mediatype': 'music',
             'artist': artist,
             'title': title,
-            'duration': track.get('length'),
+            'duration': duration,
         })
     thumb = addict.AudioAddict.url(track.get('asset_url'), width=512)
     item.setArt({'thumb': thumb, 'fanart': thumb})
+
+    item.setProperty('IsPlayable', 'true')
+    item.setProperty('IsInternetStream', 'true')
+    item.setProperty('TotalTime', str(duration))
+    if set_offset and offset > 0:
+        item.setProperty('StartOffset', str(offset))
 
     return item
 
