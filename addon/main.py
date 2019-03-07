@@ -290,17 +290,17 @@ def search(network, query=None, filter_=None, page=1):
     utils.list_items(items)
 
 
-def play_channel(network, channel):
+def play_channel(network, channel, cache=False):
     valid_handle = HANDLE != -1
 
     aa = addict.AudioAddict(PROFILE_DIR, network)
 
     diag = None
-    if not valid_handle:
+    if not valid_handle and not cache:
         diag = xbmcgui.DialogProgressBG()
         diag.create(utils.translate(30316))
 
-    track = utils.next_track(network, channel, False, False)
+    track = utils.next_track(network, channel, cache, False)
     if diag:
         diag.update(50)
 
@@ -313,16 +313,18 @@ def play_channel(network, channel):
         diag.update(100)
         diag.close()
 
-    playlist = xbmc.PlayList(xbmc.PLAYLIST_MUSIC)
-    playlist.clear()
-    playlist.add(item.getPath(), item)
-
     if valid_handle:
         # Item activated through e.g. Chorus2
-        xbmcplugin.setResolvedUrl(HANDLE, True, item)
+        xbmcplugin.setResolvedUrl(HANDLE, False, item)
+        xbmc.executebuiltin('RunPlugin({})'.format(
+            utils.build_path('play', network, channel, cache=True)))
 
     else:
         # Item activated through Kodi itself
+        playlist = xbmc.PlayList(xbmc.PLAYLIST_MUSIC)
+        playlist.clear()
+        playlist.add(item.getPath(), item)
+
         xbmc.Player().play()
 
 
