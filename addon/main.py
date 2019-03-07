@@ -293,8 +293,6 @@ def search(network, query=None, filter_=None, page=1):
 def play_channel(network, channel, cache=False):
     valid_handle = HANDLE != -1
 
-    aa = addict.AudioAddict(PROFILE_DIR, network)
-
     diag = None
     if not valid_handle and not cache:
         diag = xbmcgui.DialogProgressBG()
@@ -388,7 +386,7 @@ def setup(notice=True, update_cache=False):
     ADDON.setSetting('aa.email', '')
 
     if notice:
-        xbmcgui.Dialog().textviewer(translate(30300), translate(30301))
+        xbmcgui.Dialog().textviewer(utils.translate(30300), utils.translate(30301))
 
     k = xbmc.Keyboard(aa.member.get('email', ''), utils.translate(30319))
     k.doModal()
