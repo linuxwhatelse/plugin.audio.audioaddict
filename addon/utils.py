@@ -18,6 +18,10 @@ ADDON_DIR = xbmc.translatePath(ADDON.getAddonInfo('path'))
 PROFILE_DIR = xbmc.translatePath(os.path.join(ADDON.getAddonInfo('profile')))
 
 
+def _enc(val):
+    return val.encode('utf-8')
+
+
 def log(*args, **kwargs):
     args = [str(i) for i in args]
     level = kwargs.get('level', DEFAULT_LOG_LEVEL)
@@ -67,7 +71,7 @@ def parse_url(url, base=None):
 
 
 def build_path(*args, **kwargs):
-    args = '/'.join([urllib.quote_plus(str(e)) for e in args])
+    args = '/'.join([urllib.quote_plus(_enc(str(e))) for e in args])
     url = 'plugin://{}/{}'.format(ADDON.getAddonInfo('id'), args)
 
     kwargs = urllib.urlencode(kwargs)
@@ -123,14 +127,13 @@ def add_aa_art(item, elem, thumb_key='compact', fanart_key='default'):
 def build_track_item(track, set_offset=False):
     asset = track.get('content', {}).get('assets', [])[0]
 
-    artist = track.get('artist', {}).get('name')
-    title = track.get('title')
-    duration = track.get('length'),
+    artist = _enc(track.get('artist', {}).get('name'))
+    title = _enc(track.get('title'))
+    duration = track.get('length')
     offset = track.get('content', {}).get('offset', 0)
 
     item = xbmcgui.ListItem('{} - {}'.format(artist, title))
     item.setPath(addict.AudioAddict.url(asset.get('url')))
-
     item.setInfo(
         'music', {
             'mediatype': 'music',
@@ -138,8 +141,7 @@ def build_track_item(track, set_offset=False):
             'title': title,
             'duration': duration,
         })
-    thumb = addict.AudioAddict.url(track.get('asset_url'), width=512)
-    item.setArt({'thumb': thumb, 'fanart': thumb})
+    item = add_aa_art(item, track)
 
     item.setProperty('IsPlayable', 'true')
     item.setProperty('IsInternetStream', 'true')

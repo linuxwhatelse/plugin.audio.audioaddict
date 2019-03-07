@@ -7,6 +7,7 @@ import xbmcaddon
 import xbmcgui
 import xbmcplugin
 from addon import HANDLE, addict, utils
+from addon.utils import _enc
 
 ADDON = xbmcaddon.Addon()
 
@@ -82,10 +83,10 @@ def list_channels(network, style=None, channels=None, do_list=True):
                 })
 
         for style in filters:
-            item = xbmcgui.ListItem('{} ({})'.format(style['name'],
-                                                     len(style['channels'])))
-            items.append((utils.build_path('channels', network, style['key']),
-                          item, True))
+            item = xbmcgui.ListItem('{} ({})'.format(
+                _enc(style.get('name')), len(style.get('channels', []))))
+            items.append((utils.build_path('channels', network,
+                                           style.get('key')), item, True))
 
     else:
         xbmcplugin.setContent(HANDLE, 'songs')
@@ -97,12 +98,18 @@ def list_channels(network, style=None, channels=None, do_list=True):
                 channels = aa.get_channels(style)
 
         favorites = [f['channel_id'] for f in aa.get_favorites()]
+        # If I ever manage to get label2 to show, that's what we're going to
+        # put there...
+        # playing = {
+        #     p['channel_id']: p['track']
+        #     for p in aa.get_currently_playing()
+        # }
+
         for channel in channels:
             item_url = utils.build_path('play', network, channel.get('key'))
 
-            item = xbmcgui.ListItem(channel.get('name'))
+            item = xbmcgui.ListItem(_enc(channel.get('name')))
             item.setPath(item_url)
-
             item = utils.add_aa_art(item, channel, 'default', 'compact')
 
             if channel.get('id') not in favorites:
@@ -147,7 +154,7 @@ def list_shows(network, filter_=None, channel=None, field=None, shows=None,
         for show in shows:
             item_url = utils.build_path('episodes', network, show.get('slug'))
 
-            item = xbmcgui.ListItem(show.get('name'))
+            item = xbmcgui.ListItem(_enc(show.get('name')))
             item = utils.add_aa_art(item, show)
 
             items.append((item_url, item, True))
@@ -186,11 +193,10 @@ def list_shows(network, filter_=None, channel=None, field=None, shows=None,
 
 def list_episodes(network, slug, page=1, do_list=True):
     aa = addict.AudioAddict(PROFILE_DIR, network)
+    xbmcplugin.setContent(HANDLE, 'songs')
     xbmcplugin.setPluginCategory(HANDLE, aa.name)
 
     per_page = ADDON.getSettingInt('aa.shows_per_page')
-
-    xbmcplugin.setContent(HANDLE, 'songs')
 
     items = []
     for ep in aa.get_show_episodes(slug, page, per_page):
@@ -198,22 +204,10 @@ def list_episodes(network, slug, page=1, do_list=True):
         if not tracks:
             continue
 
-        track = tracks[0]
-        item = xbmcgui.ListItem()
-        item.setInfo(
-            'music', {
-                'title': track.get('display_title'),
-                'artist': track.get('display_artist'),
-                'duration': track.get('length'),
-            })
+        item = utils.build_track_item(tracks[0])
         item = utils.add_aa_art(item, ep.get('show'))
 
-        assets = track.get('content', {}).get('assets', [])
-        if not assets:
-            continue
-
-        url = addict.AudioAddict.url(assets[0].get('url'))
-        items.append((url, item, False))
+        items.append((item.getPath(), item, False))
 
     if len(items) >= per_page:
         items.append((
@@ -307,12 +301,16 @@ def play_channel(network, channel):
         diag.create(utils.translate(30316))
 
     track = utils.next_track(network, channel, False, False)
+    if diag:
+        diag.update(50)
+
     item_url = utils.build_path('track', network, channel, track.get('id'))
 
     item = utils.build_track_item(track, True)
     item.setPath(item_url)
 
     if diag:
+        diag.update(100)
         diag.close()
 
     playlist = xbmc.PlayList(xbmc.PLAYLIST_MUSIC)
