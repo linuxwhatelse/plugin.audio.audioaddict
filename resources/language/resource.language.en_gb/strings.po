@@ -50,15 +50,15 @@ msgstr ""
 
 # -- Code section --
 msgctxt "#30300"
-msgid "Important"
+msgid "The Internet Radio Platform"
 msgstr ""
 
 msgctxt "#30301"
-msgid "[B]Absolutely No Advertisements![/B][CR]Keep your groove going with no commercial interruptions and enjoy all of your favorite channels without hearing or seeing advertisements.[CR][CR][B]Higher Quality Audio[/B][CR]Premium subscribers enjoy audio quality that is twice as good as the free options. Premium lets you choose between 320k MP3 and 128k AAC options. Compare the sound quality of our Free (64k AAC) and Premium (320k MP3) streams to hear the difference for yourself.[CR][CR][B]Use External Players & Devices[/B][CR]Premium allows you to stream DI.FM channels using popular hardware players including Sonos, Squeezebox, Denon, Phillips, Pioneer, Roku, or any that support vTuner or TuneIn. You can also use audio players like iTunes, Winamp, VLC, and others.[CR][CR][B]Outstanding Portability[/B][CR]Premium works with our suite of native mobile apps for iOS, Android, and Kindle Fire. You can also access premium streams using almost any third-party hardware or software player of your choice."
+msgid "[B]Brands powered by AudioAddict's solutions:[/B][CR]  - Digitally Imported (https://di.fm)[CR]  - RadioTunes (https://radiotunes.com)[CR]  - JAZZRADIO.com (https://jazzradio.com)[CR]  - ROCKRADIO.com (https://rockradio.com)[CR]  - ClassicalRadio.com (https://classicalradio.com)[CR][CR]A account on [B]one[/B] of the aforementioned services is [B]required[/B] and will be shared with all the others.[CR][CR][B]Important:[/B][CR]If you decide to sign up using Facebook or Google, a [B]Custom Password[/B] within [B]My Account[/B] has to be set.[CR][CR]Next you will be asked for your Login data, allowing you to manage your favorites and other features depending on whether or not you a [B]premium[/B] subscription is active."
 msgstr ""
 
 msgctxt "#30302"
-msgid "If you have registered using a Google/Facebook account, make sure to set a custom password within the services [B]My Account[/B] section."
+msgid "[B]Absolutely No Advertisements![/B][CR]Keep your groove going with no commercial interruptions and enjoy all of your favorite channels without hearing or seeing advertisements.[CR][CR][B]Higher Quality Audio[/B][CR]Premium subscribers enjoy audio quality that is twice as good as the free options. Premium lets you choose between 320k MP3 and 128k AAC options. Compare the sound quality of our Free (64k AAC) and Premium (320k MP3) streams to hear the difference for yourself.[CR][CR][B]Use External Players & Devices[/B][CR]Premium allows you to stream DI.FM channels using popular hardware players including Sonos, Squeezebox, Denon, Phillips, Pioneer, Roku, or any that support vTuner or TuneIn. You can also use audio players like iTunes, Winamp, VLC, and others.[CR][CR][B]Outstanding Portability[/B][CR]Premium works with our suite of native mobile apps for iOS, Android, and Kindle Fire. You can also access premium streams using almost any third-party hardware or software player of your choice."
 msgstr ""
 
 msgctxt "#30303"

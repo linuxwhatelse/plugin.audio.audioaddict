@@ -386,7 +386,7 @@ def setup(notice=True, update_cache=False):
     ADDON.setSetting('aa.email', '')
 
     if notice:
-        xbmcgui.Dialog().ok(utils.translate(30300), utils.translate(30302))
+        xbmcgui.Dialog().textviewer(translate(30300), translate(30301))
 
     k = xbmc.Keyboard(aa.member.get('email', ''), utils.translate(30319))
     k.doModal()

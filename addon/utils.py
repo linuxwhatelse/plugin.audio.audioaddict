@@ -153,7 +153,7 @@ def build_track_item(track, set_offset=False):
 
 
 def go_premium():
-    xbmcgui.Dialog().textviewer(translate(30311), translate(30301))
+    xbmcgui.Dialog().textviewer(translate(30311), translate(30302))
 
 
 def list_items(items, sort_methods=None):
