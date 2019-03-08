@@ -13,6 +13,8 @@ def update_cache():
     for i, network in enumerate(addict.NETWORKS):
         aa = addict.AudioAddict(PROFILE_DIR, network)
 
+        aa.invalidate_cache()
+
         if not aa.is_active:
             continue
 

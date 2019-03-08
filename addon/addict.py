@@ -160,15 +160,19 @@ class AudioAddict:
 
         cache = kwargs.pop('cache', self._cache_file)
         cache_key = kwargs.pop('cache_key', '_'.join(args))
-        cache_time = kwargs.pop('cache_time', time.time())
+        cache_time = kwargs.pop('cache_time', None)
         refresh = kwargs.pop('refresh', False)
 
         if not refresh and cache and os.path.exists(cache):
             _cache = (self.__cache.get(cache, {}).get(cache_key, {})
                       or self._read_cache(cache).get(cache_key, {}))
-            cached_at = _cache.get('cached_at')
-            if _cache and cached_at + cache_time > time.time():
-                return _cache.get('data')
+            cache_until = _cache.get('cache_until')
+            if _cache:
+                if not cache_until:
+                    return _cache.get('data')
+                else:
+                    if cache_until > time.time():
+                        return _cache.get('data')
 
         args = '/'.join([urllib.quote_plus(arg) for arg in args])
         url = '/'.join([self._network['api_url'].rstrip('/'), args])
@@ -190,10 +194,10 @@ class AudioAddict:
 
             if cache:
                 _cache = self._read_cache(cache)
-                _cache[cache_key] = {
-                    'cached_at': int(time.time()),
-                    'data': resp.json(),
-                }
+                _cache[cache_key] = {'data': resp.json()}
+                if cache_time:
+                    _cache[cache_key]['cache_until'] = int(time.time() +
+                                                           cache_time)
 
                 self.__cache[cache] = _cache
 
@@ -212,6 +216,16 @@ class AudioAddict:
     def _post(self, *args, **kwargs):
         return self._api_call(requests.post, *args, auth=('mobile', 'apps'),
                               **kwargs)
+
+    def invalidate_cache(self):
+        cache = self._read_cache(self._cache_file)
+        for key in cache.keys():
+            cache_until = cache[key].get('cache_until')
+            if cache_until and cache_until < time.time():
+                del cache[key]
+
+        with open(self._cache_file, 'w') as f:
+            f.write(json.dumps(cache, indent=2))
 
     @property
     def user(self):
