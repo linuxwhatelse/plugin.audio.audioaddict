@@ -155,6 +155,17 @@ def go_premium():
     xbmcgui.Dialog().textviewer(translate(30311), translate(30302))
 
 
+def clear_cache():
+    for network in addict.NETWORKS.keys():
+        aa = addict.AudioAddict(PROFILE_DIR, network)
+        if os.path.exists(aa.cache_file):
+            os.remove(aa.cache_file)
+
+    tracks = os.path.join(PROFILE_DIR, 'tracks.json')
+    if os.path.exists(tracks):
+        os.remove(tracks)
+
+
 def list_items(items, sort_methods=None):
     if not sort_methods:
         sort_methods = [

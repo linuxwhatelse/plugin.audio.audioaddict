@@ -161,8 +161,7 @@ def list_shows(network, filter_=None, channel=None, field=None, shows=None,
 
         if do_list and len(items) >= per_page:
             items.append((
-                utils.build_path('shows', network, channel, field=field,
-                                 page=page + 1),
+                utils.build_path('shows', network, 'channels', page=page + 1),
                 xbmcgui.ListItem(utils.translate(30318)),
                 True,
             ))
@@ -191,7 +190,7 @@ def list_shows(network, filter_=None, channel=None, field=None, shows=None,
     utils.list_items(items)
 
 
-def list_episodes(network, slug, page=1, do_list=True):
+def list_episodes(network, slug, page=1, do_list=True, refresh=False):
     aa = addict.AudioAddict(PROFILE_DIR, network)
     xbmcplugin.setContent(HANDLE, 'songs')
     xbmcplugin.setPluginCategory(HANDLE, aa.name)
@@ -211,7 +210,7 @@ def list_episodes(network, slug, page=1, do_list=True):
 
     if len(items) >= per_page:
         items.append((
-            utils.build_path(['episodes', network, slug], page=page + 1),
+            utils.build_path('episodes', network, slug, page=page + 1),
             xbmcgui.ListItem(utils.translate(30318)),
             True,
         ))
@@ -380,13 +379,16 @@ def update_networks(networks=None):
 
 
 def setup(notice=True, update_cache=False):
+    for network in addict.NETWORKS.keys():
+        addict.AudioAddict(PROFILE_DIR, network).logout()
+
     aa = addict.AudioAddict(PROFILE_DIR, TEST_LOGIN_NETWORK)
-    aa.logout()
 
     ADDON.setSetting('aa.email', '')
 
     if notice:
-        xbmcgui.Dialog().textviewer(utils.translate(30300), utils.translate(30301))
+        xbmcgui.Dialog().textviewer(
+            utils.translate(30300), utils.translate(30301))
 
     k = xbmc.Keyboard(aa.member.get('email', ''), utils.translate(30319))
     k.doModal()
@@ -400,7 +402,7 @@ def setup(notice=True, update_cache=False):
         return False
     password = k.getText()
 
-    if not aa.login(username, password, refresh=True):
+    if not aa.login(username, password):
         if xbmcgui.Dialog().yesno(
                 utils.translate(30309), utils.translate(30310)):
             return setup(False, update_cache)
@@ -436,13 +438,15 @@ def run():
         for network in addict.NETWORKS.keys():
             addict.AudioAddict(PROFILE_DIR, network).logout()
 
-        tracks = os.path.join(PROFILE_DIR, 'tracks.json')
-        if os.path.exists(tracks):
-            os.remove(tracks)
+        utils.clear_cache()
 
         ADDON.setSetting('aa.email', '')
         utils.notify(utils.translate(30306))
         sys.exit(0)
+
+    elif url.path[0] == 'clear_cache':
+        utils.clear_cache()
+        utils.notify(utils.translate(30315))
 
     elif url.path[0] == 'refresh':
         network = url.query.get('network')

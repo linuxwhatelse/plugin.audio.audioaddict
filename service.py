@@ -16,15 +16,15 @@ def update_cache():
         if not aa.is_active:
             continue
 
-        utils.log('Updating channels for', network)
-        aa.get_channels(refresh=True)
+        utils.log('Updating channels for "{}"'.format(aa.name))
+        aa.get_channel_filters(refresh=True)
 
-        utils.log('Updating favorites for', network)
-        aa.get_favorite_channels(refresh=True)
+        if aa.network['has_shows']:
+            # TODO
+            break
 
 
 if __name__ == '__main__':
-    addon = xbmcaddon.Addon()
     monitor = xbmc.Monitor()
 
     while not monitor.abortRequested():

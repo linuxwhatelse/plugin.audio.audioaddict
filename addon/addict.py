@@ -1,9 +1,12 @@
 import collections
 import json
 import os
+import time
 import urllib
 
 import requests
+
+CACHE_TIME = 1800  # 30 min. cache. Might be tweaked
 
 NETWORKS = collections.OrderedDict([
     ('difm', {
@@ -125,6 +128,10 @@ class AudioAddict:
         return self._network
 
     @property
+    def cache_file(self):
+        return self._cache_file
+
+    @property
     def _cache(self):
         return (self.__cache.get(self._cache_file)
                 or self._read_cache(self._cache_file))
@@ -153,13 +160,15 @@ class AudioAddict:
 
         cache = kwargs.pop('cache', self._cache_file)
         cache_key = kwargs.pop('cache_key', '_'.join(args))
+        cache_time = kwargs.pop('cache_time', time.time())
         refresh = kwargs.pop('refresh', False)
 
         if not refresh and cache and os.path.exists(cache):
-            _data = (self.__cache.get(cache, {}).get(cache_key)
-                     or self._read_cache(cache).get(cache_key))
-            if _data:
-                return _data
+            _cache = (self.__cache.get(cache, {}).get(cache_key, {})
+                      or self._read_cache(cache).get(cache_key, {}))
+            cached_at = _cache.get('cached_at')
+            if _cache and cached_at + cache_time > time.time():
+                return _cache.get('data')
 
         args = '/'.join([urllib.quote_plus(arg) for arg in args])
         url = '/'.join([self._network['api_url'].rstrip('/'), args])
@@ -172,39 +181,53 @@ class AudioAddict:
             url += '?{}'.format(query)
 
         try:
-            data = {'json': payload}
-            if not is_json:
-                data = {'data': payload}
+            data = {'data': payload}
+            if is_json:
+                data = {'json': payload}
 
-            res = method(url, auth=auth, **data)
+            resp = method(url, auth=auth, **data)
+            resp.json()
 
             if cache:
                 _cache = self._read_cache(cache)
-                _cache[cache_key] = res.json()
+                _cache[cache_key] = {
+                    'cached_at': int(time.time()),
+                    'data': resp.json(),
+                }
 
                 self.__cache[cache] = _cache
 
                 with open(cache, 'w') as f:
                     f.write(json.dumps(_cache, indent=2))
 
-            return res.json()
+            return resp.json()
 
         except Exception:
             return {}
 
     def _get(self, *args, **kwargs):
-        return self._api_call(requests.get, *args, **kwargs)
+        return self._api_call(requests.get, *args, auth=('mobile', 'apps'),
+                              **kwargs)
 
     def _post(self, *args, **kwargs):
         return self._api_call(requests.post, *args, auth=('mobile', 'apps'),
                               **kwargs)
 
-    def _delete(self, *args, **kwargs):
-        return self._api_call(requests.delete, *args, **kwargs)
+    @property
+    def user(self):
+        return self._ccache.get('user', {}).get('data', {})
+
+    @property
+    def member_id(self):
+        return self.user.get('member_id')
+
+    @property
+    def audio_token(self):
+        return self.user.get('audio_token')
 
     @property
     def member(self):
-        return self._ccache.get('user', {}).get('member', {})
+        return self.user.get('member', {})
 
     @property
     def api_key(self):
@@ -221,14 +244,6 @@ class AudioAddict:
     @property
     def is_premium(self):
         return self.member.get('user_type') == 'premium'
-
-    @property
-    def member_id(self):
-        return self._ccache.get('user', {}).get('member_id')
-
-    @property
-    def audio_token(self):
-        return self._ccache.get('user', {}).get('audio_token')
 
     def get_channel_id(self, channel):
         for c in self.get_channels():
@@ -277,7 +292,8 @@ class AudioAddict:
 
     def get_favorites(self, refresh=False):
         return self._get('members', self.member_id, 'favorites', 'channels',
-                         cache_key='favorites', refresh=refresh)
+                         cache_key='favorites', cache_time=CACHE_TIME,
+                         refresh=refresh)
 
     def get_qualities(self):
         return self._get('qualities', cache=None, refresh=False)
@@ -295,26 +311,29 @@ class AudioAddict:
         return self._get('tracks', track_id, cache=None)
 
     def get_shows(self, channel=None, field=None, page=1, per_page=25,
-                  refresh=True):
+                  refresh=False):
         if any((channel, field)) and not all((channel, field)):
             raise ValueError('"channel" and "field" are mutually inclusive.')
 
-        path_ = ['shows']
+        cache_key = 'shows_{}'.format(page)
         query = {'page': page, 'per_page': per_page}
 
         if all((channel, field)):
             query['facets[{}][]'.format(field)] = channel
 
-        return self._get(*path_, refresh=refresh, **query)
-
-    def get_shows_followed(self, page=1, per_page=25, refresh=True):
-        query = {'page': page, 'per_page': per_page}
-        return self._get('members', self.member_id, 'followed_items', 'show',
+        return self._get('shows', cache_key=cache_key, cache_time=3600,
                          refresh=refresh, **query)
 
-    def get_show_episodes(self, slug, page=1, per_page=25):
-        return self._get('shows', slug, 'episodes', page=page, cache=None,
-                         per_page=per_page)
+    def get_shows_followed(self, page=1, per_page=25, refresh=False):
+        return self._get('members', self.member_id, 'followed_items', 'show',
+                         page=page, per_page=per_page, cache_time=CACHE_TIME,
+                         refresh=refresh)
+
+    def get_show_episodes(self, slug, page=1, per_page=25, refresh=False):
+        cache_key = 'show_episodes_{}_{}'.format(slug, page)
+        return self._get('shows', slug, 'episodes', page=page,
+                         per_page=per_page, cache_key=cache_key,
+                         cache_time=CACHE_TIME, refresh=refresh)
 
     def get_upcoming(self, limit=10, start_at=None, end_at=None,
                      refresh=False):
@@ -328,6 +347,12 @@ class AudioAddict:
         return self._get('routines', 'channel', channel_id,
                          tune_in=str(tune_in).lower(), cache=None)
 
+    def get_listen_history(self, channel):
+        channel_id = self.get_channel_id(channel)
+        if channel_id is None:
+            return None
+        return self._get('listen_history', channel_id=channel_id, cache=None)
+
     def search(self, query, page=1, per_page=25):
         query = {'q': query, 'page': page, 'per_page': per_page}
         return self._get('search', cache=None, **query)
@@ -340,13 +365,13 @@ class AudioAddict:
     #
     # --- Post ---
     #
-    def login(self, username, password, refresh=False):
+    def login(self, username, password):
         payload = {
             'member_session[username]': username,
             'member_session[password]': password,
         }
         self._post('member_sessions', payload=payload, is_json=False,
-                   cache=self._ccache_file, cache_key='user', refresh=refresh)
+                   cache=self._ccache_file, cache_key='user')
         return self.is_active
 
     def add_listen_history(self, channel, track_id):

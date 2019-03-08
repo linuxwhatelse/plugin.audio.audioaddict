@@ -48,6 +48,11 @@ msgctxt "#30105"
 msgid "Shows/Episodes per page"
 msgstr ""
 
+msgctxt "#30106"
+msgid "Clear cache"
+msgstr ""
+
+
 # -- Code section --
 msgctxt "#30300"
 msgid "The Internet Radio Platform"
@@ -110,7 +115,7 @@ msgid "All done!"
 msgstr ""
 
 msgctxt "#30315"
-msgid ""
+msgid "Clearing cache successful"
 msgstr ""
 
 msgctxt "#30316"
