@@ -1,6 +1,5 @@
 import json
 import os
-import time
 import urllib
 import urlparse
 
@@ -141,7 +140,7 @@ def build_track_item(track, set_offset=False):
             'title': title,
             'duration': duration,
         })
-    item = add_aa_art(item, track)
+    item = add_aa_art(item, track, 'default')
 
     item.setProperty('IsPlayable', 'true')
     item.setProperty('IsInternetStream', 'true')
