@@ -3,8 +3,10 @@ import json
 import os
 import time
 import urllib
-
+from datetime import datetime
 import requests
+import dateutil
+from dateutil.parser import parse
 
 CACHE_TIME = 1800  # 30 min. cache. Might be tweaked
 
@@ -303,6 +305,33 @@ class AudioAddict:
     def remove_favorite(self, channel):
         channel_id = self.get_channel_id(channel)
         return self.manage_favorites(remove=[channel_id])
+
+    def get_live_shows(self, refresh=False):
+        now = datetime.now(dateutil.tz.UTC)
+
+        shows = []
+        for up in self.get_upcoming(refresh=refresh):
+            start_at = parse(up.get('start_at'))
+            if start_at > now:
+                continue
+
+            shows.append(up)
+
+        return shows
+
+    def get_live_show(self, channel, refresh=False):
+        for up in self.get_upcoming(refresh=refresh):
+            show = up.get('show', {})
+            if not show.get('now_playing', False):
+                continue
+
+            for chan in show.get('channels', []):
+                if chan.get('key') != channel:
+                    continue
+
+                return up
+
+        return None
 
     #
     # --- Get ---

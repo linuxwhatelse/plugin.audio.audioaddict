@@ -307,6 +307,8 @@ def search(network, query=None, filter_=None, page=1):
 
 
 def play_channel(network, channel, cache=False):
+    aa = addict.AudioAddict(PROFILE_DIR, network)
+
     valid_handle = HANDLE != -1
 
     diag = None
@@ -314,14 +316,14 @@ def play_channel(network, channel, cache=False):
         diag = xbmcgui.DialogProgressBG()
         diag.create(utils.translate(30316))
 
-    track = utils.next_track(network, channel, cache, False)
+    track = utils.next_track(network, channel, cache, pop=False)
+
     if diag:
         diag.update(50)
 
     item_url = utils.build_path('track', network, channel, track.get('id'))
 
-    item = utils.build_track_item(track, True)
-    item.setPath(item_url)
+    item = utils.build_track_item(track, item_url)
 
     if diag:
         diag.update(100)
@@ -342,14 +344,20 @@ def play_channel(network, channel, cache=False):
         xbmc.Player().play()
 
 
-def resolve_track(network, channel, track_id, cache=False):
+def resolve_track(network, channel, track_id, cache=True):
     aa = addict.AudioAddict(PROFILE_DIR, network)
 
-    track = utils.next_track(network, channel, True)
+    track = utils.next_track(network, channel, cache)
     item = utils.build_track_item(track)
 
     xbmcplugin.setResolvedUrl(HANDLE, True, item)
-    aa.add_listen_history(channel, track.get('id'))
+
+    offset = track.get('content', {}).get('offset', 0)
+    if offset:
+        utils.log('Seeking to:', offset)
+        utils.seek_offset(offset)
+
+    aa.add_listen_history(channel, track_id)
 
     add_track(network, channel, track, cache)
 
@@ -365,12 +373,13 @@ def add_track(network, channel, current_track=None, cache=False):
         next_track = utils.next_track(network, channel, cache)
         if current_track.get('id') == next_track.get('id'):
             # Was the same track as is already playing, get a new one
-            next_track = utils.next_track(network, channel)
+            utils.log('Same track, getting new one...')
+            next_track = utils.next_track(network, channel, cache,
+                                          incl_live=False)
 
         next_item = utils.build_track_item(next_track)
         next_item.setPath(
-            utils.build_path('track', network, channel, next_track.get('id'),
-                             cache=True))
+            utils.build_path('track', network, channel, next_track.get('id')))
 
         playlist.add(next_item.getPath(), next_item)
 

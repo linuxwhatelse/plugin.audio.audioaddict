@@ -52,6 +52,14 @@ msgctxt "#30106"
 msgid "Clear cache"
 msgstr ""
 
+msgctxt "#30107"
+msgid "Notify if a show I follow goes live"
+msgstr ""
+
+msgctxt "#30108"
+msgid "Tune in if the currently playing channel goes live"
+msgstr ""
+
 
 # -- Code section --
 msgctxt "#30300"
@@ -176,4 +184,8 @@ msgstr ""
 
 msgctxt "#30330"
 msgid "Show Listen History"
+msgstr ""
+
+msgctxt "#30331"
+msgid "Refresh Shows"
 msgstr ""

@@ -2,6 +2,10 @@ import json
 import os
 import urllib
 import urlparse
+from datetime import datetime
+
+import dateutil
+from dateutil.parser import parse
 
 import xbmc
 import xbmcaddon
@@ -37,6 +41,28 @@ def notify(title, message='', icon=None, display_time=5000):
 
 def translate(id_):
     return ADDON.getLocalizedString(id_)
+
+
+def seek_offset(offset, timeout=3, interval=0.1):
+    player = xbmc.Player()
+    monitor = xbmc.Monitor()
+
+    waited = 0
+    while not monitor.abortRequested():
+        if player.isPlayingAudio():
+            player.seekTime(offset)
+            if player.getTime() >= offset:
+                return True
+
+        if monitor.waitForAbort(interval):
+            break
+
+        if waited >= timeout:
+            break
+
+        waited += interval
+
+    return False
 
 
 def parse_url(url, base=None):
@@ -80,28 +106,51 @@ def build_path(*args, **kwargs):
     return url
 
 
-def next_track(network, channel, cache=True, pop=True):
-    tracks_file = os.path.join(PROFILE_DIR, 'tracks.json')
-
+def next_track(network, channel, cache=True, pop=True, incl_live=True):
     aa = addict.AudioAddict(PROFILE_DIR, network)
-    channel_id = aa.get_channel_id(channel)
 
-    track_list = {}
-    if cache and os.path.exists(tracks_file):
-        with open(tracks_file, 'r') as f:
-            track_list = json.loads(f.read())
+    track = None
 
-    if (track_list.get('channel_id') != channel_id
-            or len(track_list.get('tracks')) < 1):
-        track_list = aa.get_track_list(channel)
+    if incl_live:
+        now = datetime.now(dateutil.tz.UTC)
+        for show in aa.get_live_shows(refresh=not cache):
+            channels = [
+                c for c in show.get('show', {}).get('channels', [])
+                if c.get('key') == channel
+            ]
 
-    if pop:
-        track = track_list['tracks'].pop(0)
-    else:
-        track = track_list['tracks'][0]
+            if len(channels) == 0:
+                break
 
-    with open(tracks_file, 'w') as f:
-        f.write(json.dumps(track_list, indent=2))
+            track = show.get('tracks')[0]
+
+            time_left = parse(show.get('end_at')) - now
+            offset = track.get('length') - time_left.seconds
+
+            track['content']['offset'] = offset
+
+            break
+
+    if not track:
+        tracks_file = os.path.join(PROFILE_DIR, 'tracks.json')
+        channel_id = aa.get_channel_id(channel)
+
+        track_list = {}
+        if cache and os.path.exists(tracks_file):
+            with open(tracks_file, 'r') as f:
+                track_list = json.loads(f.read())
+
+        if (track_list.get('channel_id') != channel_id
+                or len(track_list.get('tracks')) < 1):
+            track_list = aa.get_track_list(channel)
+
+        if pop:
+            track = track_list['tracks'].pop(0)
+        else:
+            track = track_list['tracks'][0]
+
+        with open(tracks_file, 'w') as f:
+            f.write(json.dumps(track_list, indent=2))
 
     return track
 
@@ -123,7 +172,7 @@ def add_aa_art(item, elem, thumb_key='compact', fanart_key='default'):
     return item
 
 
-def build_track_item(track, set_offset=False):
+def build_track_item(track, item_path=None, set_offset=True):
     asset = track.get('content', {}).get('assets', {})
     if asset:
         asset = asset[0]
@@ -136,7 +185,11 @@ def build_track_item(track, set_offset=False):
     offset = track.get('content', {}).get('offset', 0)
 
     item = xbmcgui.ListItem('{} - {}'.format(artist, title))
-    item.setPath(addict.AudioAddict.url(asset.get('url')))
+    if item_path:
+        item.setPath(item_path)
+    else:
+        item.setPath(addict.AudioAddict.url(asset.get('url')))
+
     item.setInfo(
         'music', {
             'mediatype': 'music',
@@ -147,10 +200,16 @@ def build_track_item(track, set_offset=False):
     item = add_aa_art(item, track, 'default')
 
     item.setProperty('IsPlayable', 'true')
-    item.setProperty('IsInternetStream', 'true')
-    item.setProperty('TotalTime', str(duration))
-    if set_offset and offset > 0:
-        item.setProperty('StartOffset', str(offset))
+
+    # Don't think this is necessary...
+    # item.setProperty('IsInternetStream', 'true')
+
+    # Only set because of "StartOffset"
+    # item.setProperty('TotalTime', str(duration))
+
+    # Doesn't work with xbmc.Player().player
+    # if set_offset and offset > 0:
+    #     item.setProperty('StartOffset', str(offset))
 
     return item
 

@@ -6,6 +6,8 @@
 
         <setting label="30104" id="aa.email" type="text" enable="false"/>
         <setting label="30100" id="view.fanart" type="bool" default="true"/>
+        <setting label="30107" id="addon.notify_live" type="bool" default="true"/>
+        <setting label="30108" id="addon.tune_in_live" type="bool" default="true"/>
         <setting label="30105" id="aa.shows_per_page" type="slider" range="5,1,100" option="int" default="10" />
         <setting type="sep"/>
         <setting label="30101" id="addon.run_setup" type="action" action="RunPlugin(plugin://plugin.audio.audioaddict/setup)"/>
