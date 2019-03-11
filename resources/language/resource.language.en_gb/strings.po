@@ -173,3 +173,7 @@ msgstr ""
 msgctxt "#30329"
 msgid "[B]{}[/B] removed from favorites."
 msgstr ""
+
+msgctxt "#30330"
+msgid "Show Listen History"
+msgstr ""

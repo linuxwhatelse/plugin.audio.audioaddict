@@ -124,10 +124,14 @@ def add_aa_art(item, elem, thumb_key='compact', fanart_key='default'):
 
 
 def build_track_item(track, set_offset=False):
-    asset = track.get('content', {}).get('assets', [])[0]
+    asset = track.get('content', {}).get('assets', {})
+    if asset:
+        asset = asset[0]
 
-    artist = _enc(track.get('artist', {}).get('name'))
-    title = _enc(track.get('title'))
+    artist = _enc(
+        track.get('artist', {}).get('name', '')
+        or track.get('display_arist', ''))
+    title = _enc(track.get('title') or track.get('display_title', ''))
     duration = track.get('length')
     offset = track.get('content', {}).get('offset', 0)
 

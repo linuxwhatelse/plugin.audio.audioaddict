@@ -92,6 +92,7 @@ class AudioAddict:
 
     _network = None
 
+    _response = None
     __cache = None
 
     def __init__(self, _cache_dir, network):
@@ -128,6 +129,10 @@ class AudioAddict:
         return self._network
 
     @property
+    def response(self):
+        return self._response
+
+    @property
     def cache_file(self):
         return self._cache_file
 
@@ -152,6 +157,8 @@ class AudioAddict:
         return data
 
     def _api_call(self, method, *args, **kwargs):
+        self._response = None
+
         args = [str(e) for e in args]
 
         auth = kwargs.pop('auth', None)
@@ -189,12 +196,11 @@ class AudioAddict:
             if is_json:
                 data = {'json': payload}
 
-            resp = method(url, auth=auth, **data)
-            resp.json()
+            self._response = method(url, auth=auth, **data)
 
             if cache:
                 _cache = self._read_cache(cache)
-                _cache[cache_key] = {'data': resp.json()}
+                _cache[cache_key] = {'data': self._response.json()}
                 if cache_time:
                     _cache[cache_key]['cache_until'] = int(time.time() +
                                                            cache_time)
@@ -204,7 +210,7 @@ class AudioAddict:
                 with open(cache, 'w') as f:
                     f.write(json.dumps(_cache, indent=2))
 
-            return resp.json()
+            return self._response.json()
 
         except Exception:
             return {}

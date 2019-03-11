@@ -112,25 +112,42 @@ def list_channels(network, style=None, channels=None, do_list=True):
             item.setPath(item_url)
             item = utils.add_aa_art(item, channel, 'default', 'compact')
 
+            cmenu = [
+                (utils.translate(30330), 'Container.Update({})'.format(
+                    utils.build_path('listen_history', network,
+                                     channel.get('key')))),
+            ]
             if channel.get('id') not in favorites:
                 # Add to favorites
-                item.addContextMenuItems([
-                    (utils.translate(30326), 'RunPlugin({})'.format(
-                        utils.build_path('favorite', network, 'add',
-                                         channel.get('key')))),
-                ], True)
+                cmenu.append((utils.translate(30326), 'RunPlugin({})'.format(
+                    utils.build_path('favorite', network, 'add',
+                                     channel.get('key')))))
             else:
                 # Remove from favorites
-                item.addContextMenuItems([
-                    (utils.translate(30327), 'RunPlugin({})'.format(
-                        utils.build_path('favorite', network, 'remove',
-                                         channel.get('key')))),
-                ], True)
+                cmenu.append((utils.translate(30327), 'RunPlugin({})'.format(
+                    utils.build_path('favorite', network, 'remove',
+                                     channel.get('key')))))
 
+            item.addContextMenuItems(cmenu, True)
             items.append((item_url, item, False))
 
     if not do_list:
         return items
+    utils.list_items(items)
+
+
+def list_listen_history(network, channel):
+    aa = addict.AudioAddict(PROFILE_DIR, network)
+    xbmcplugin.setPluginCategory(HANDLE, aa.name)
+    xbmcplugin.setContent(HANDLE, 'songs')
+
+    items = []
+    for track in aa.get_listen_history(channel):
+        item = utils.build_track_item(track.get('track'))
+        item.setProperty('IsPlayable', 'false')
+        item.setPath(None)
+        items.append((None, item, False))
+
     utils.list_items(items)
 
 
@@ -471,6 +488,9 @@ def run():
 
     elif url.path[0] == 'channels':
         list_channels(*url.path[1:], **url.query)
+
+    elif url.path[0] == 'listen_history':
+        list_listen_history(*url.path[1:], **url.query)
 
     elif url.path[0] == 'track':
         resolve_track(*url.path[1:], **url.query)
