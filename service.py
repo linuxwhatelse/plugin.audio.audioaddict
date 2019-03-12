@@ -1,47 +1,20 @@
 import os
-import time
-from datetime import datetime
 
-import dateutil
 import xbmc
 import xbmcaddon
 from addon import addict, utils
-from dateutil.parser import parse
 
 ADDON = xbmcaddon.Addon()
 
 ADDON_ID = os.path.join(ADDON.getAddonInfo('id'))
 PROFILE_DIR = xbmc.translatePath(os.path.join(ADDON.getAddonInfo('profile')))
 
-CACHE_UPDATE_INTERVAL = 600
-
-
-def update_cache():
-    for network in addict.NETWORKS.keys():
-        aa = addict.AudioAddict(PROFILE_DIR, network)
-
-        aa.invalidate_cache()
-
-        if not aa.is_active:
-            continue
-
-        utils.log('Updating "{}"'.format(aa.name))
-
-        utils.log('Updating channels/favorites')
-        aa.get_channel_filters(refresh=True)
-        aa.get_favorites(refresh=True)
-
-        if aa.network['has_shows']:
-            utils.log('Updating upcoming/followed shows')
-            aa.get_shows_followed(refresh=True)
-            aa.get_upcoming(refresh=True)
-
 
 def monitor_live(skip_shows=None):
     if not skip_shows:
         skip_shows = []
 
-    now = datetime.now(dateutil.tz.UTC)
+    now = addict.datetime_now()
 
     for network in addict.NETWORKS.keys():
         aa = addict.AudioAddict(PROFILE_DIR, network)
@@ -59,10 +32,9 @@ def monitor_live(skip_shows=None):
 
         for show in shows:
             if show.get('id') in skip_shows:
-                utils.log('Already notified for show:', show.get('name'))
                 continue
 
-            if parse(show.get('end_at')) < now:
+            if addict.parse_datetime(show.get('end_at')) < now:
                 continue
 
             skip_shows.append(show.get('id'))
@@ -107,13 +79,8 @@ def monitor_live(skip_shows=None):
 if __name__ == '__main__':
     monitor = xbmc.Monitor()
 
-    last_cache_update = 0
     skip_shows = []
     while not monitor.abortRequested():
-        if last_cache_update + CACHE_UPDATE_INTERVAL < time.time():
-            last_cache_update = time.time()
-            # update_cache()
-
         skip_shows = monitor_live(skip_shows)
 
         if monitor.waitForAbort(30):

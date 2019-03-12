@@ -2,20 +2,16 @@ import json
 import os
 import urllib
 import urlparse
-from datetime import datetime
 
-import dateutil
 import xbmc
 import xbmcaddon
 import xbmcgui
 import xbmcplugin
 from addon import HANDLE, addict
-from dateutil.parser import parse
 
 DEFAULT_LOG_LEVEL = xbmc.LOGNOTICE
 
 ADDON = xbmcaddon.Addon()
-
 ADDON_DIR = xbmc.translatePath(ADDON.getAddonInfo('path'))
 PROFILE_DIR = xbmc.translatePath(os.path.join(ADDON.getAddonInfo('profile')))
 
@@ -112,7 +108,7 @@ def next_track(network, channel, cache=True, pop=True, live=True):
     track = None
 
     if live:
-        now = datetime.now(dateutil.tz.UTC)
+        now = addict.datetime_now()
         for show in aa.get_live_shows(refresh=not cache):
             channels = [
                 c for c in show.get('show', {}).get('channels', [])
@@ -122,7 +118,7 @@ def next_track(network, channel, cache=True, pop=True, live=True):
             if len(channels) == 0:
                 break
 
-            end_at = parse(show.get('end_at'))
+            end_at = addict.parse_datetime(show.get('end_at'))
             if end_at < now:
                 break
 

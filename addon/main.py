@@ -55,6 +55,9 @@ def list_networks(network=None, do_list=True):
             items.append((utils.build_path('shows', network),
                           xbmcgui.ListItem(utils.translate(30322)), True))
 
+            items.append((utils.build_path('shows', network, 'schedule'),
+                          xbmcgui.ListItem(utils.translate(30332)), True))
+
         # Search
         items.append((utils.build_path('search', network),
                       xbmcgui.ListItem(utils.translate(30323)), True))
@@ -166,15 +169,51 @@ def list_shows(network, filter_=None, channel=None, field=None, shows=None,
         shows = _res.get('results', [])
         facets = _res.get('metadata', {}).get('facets', [])
 
+    elif filter_ == 'schedule':
+        shows = aa.get_upcoming(refresh=True)
+
     items = []
     if shows:
+        now = addict.datetime_now()
         for show in shows:
-            item_url = utils.build_path('episodes', network, show.get('slug'))
+            item = None
+            is_folder = True
 
-            item = xbmcgui.ListItem(_enc(show.get('name')))
-            item = utils.add_aa_art(item, show)
+            if filter_ == 'schedule':
+                is_folder = False
 
-            items.append((item_url, item, True))
+                start_at = addict.parse_datetime(show.get('start_at'))
+                end_at = addict.parse_datetime(show.get('end_at'))
+
+                if start_at.day > now.day:
+                    continue
+
+                show = show.get('show', {})
+                channel = show.get('channels', [])[0].get('key')
+                channel_name = _enc(show.get('channels', [])[0].get('name'))
+
+                item = xbmcgui.ListItem()
+                item = utils.add_aa_art(item, show)
+
+                if show.get('now_playing', False):
+                    item.setPath(utils.build_path('play', network, channel))
+                    label_prefix = utils.translate(30333)  # Live now
+
+                else:
+                    item.setPath(utils.build_path('dev', 'null'))
+                    label_prefix = '{} - {}'.format(
+                        start_at.strftime('%H:%M'), end_at.strftime('%H:%M'))
+
+                item.setLabel('[B]{}[/B] - {} [I]({})[/I]'.format(
+                    label_prefix, _enc(show.get('name')), channel_name))
+
+            else:
+                item = xbmcgui.ListItem(_enc(show.get('name')))
+                item.setPath(
+                    utils.build_path('episodes', network, show.get('slug')))
+                item = utils.add_aa_art(item, show)
+
+            items.append((item.getPath(), item, is_folder))
 
         if do_list and len(items) >= per_page:
             items.append((
@@ -191,6 +230,10 @@ def list_shows(network, filter_=None, channel=None, field=None, shows=None,
             # By Channel
             items.append((utils.build_path('shows', network, 'channels'),
                           xbmcgui.ListItem(utils.translate(30325)), True))
+
+            # Schedule
+            items.append((utils.build_path('shows', network, 'schedule'),
+                          xbmcgui.ListItem(utils.translate(30332)), True))
 
         elif filter_ == 'channels' and not all((channel, field)):
             facets = sorted(facets, key=lambda f: f['name'])
@@ -243,7 +286,7 @@ def favorite(network, action, channel):
     channel_name = None
     for chan in aa.get_channels():
         if chan.get('key') == channel:
-            channel_name = chan.get('name')
+            channel_name = _enc(chan.get('name'))
             break
 
     if action == 'add':

@@ -189,3 +189,12 @@ msgstr ""
 msgctxt "#30331"
 msgid "Refresh Shows"
 msgstr ""
+
+msgctxt "#30332"
+msgid "Schedule"
+msgstr ""
+
+msgctxt "#30333"
+msgid "Live now"
+msgstr ""
+

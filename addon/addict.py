@@ -9,8 +9,7 @@ import requests
 
 import dateutil
 from dateutil.parser import parse
-
-CACHE_TIME = 1800  # 30 min. cache. Might be tweaked
+from dateutil.tz import tzlocal
 
 NETWORKS = collections.OrderedDict([
     ('difm', {
@@ -84,6 +83,14 @@ NETWORKS = collections.OrderedDict([
         },
     }),
 ])
+
+
+def datetime_now():
+    return datetime.now(tzlocal())
+
+
+def parse_datetime(val):
+    return parse(val).astimezone(tzlocal())
 
 
 class AudioAddict:
@@ -171,7 +178,7 @@ class AudioAddict:
 
         cache = kwargs.pop('cache', self._cache_file)
         cache_key = kwargs.pop('cache_key', '_'.join(args))
-        cache_time = kwargs.pop('cache_time', None)
+        cache_time = kwargs.pop('cache_time', 0) * 60
         refresh = kwargs.pop('refresh', False)
 
         if not refresh and cache and os.path.exists(cache):
@@ -205,7 +212,7 @@ class AudioAddict:
             if cache:
                 _cache = self._read_cache(cache)
                 _cache[cache_key] = {'data': self._response.json()}
-                if cache_time:
+                if cache_time > 0:
                     _cache[cache_key]['cache_until'] = int(time.time() +
                                                            cache_time)
 
@@ -339,11 +346,12 @@ class AudioAddict:
     # --- Get ---
     #
     def get_channel_filters(self, refresh=False):
-        return self._get('channel_filters', refresh=refresh)
+        return self._get('channel_filters', cache_time=1440,
+                         refresh=refresh)
 
     def get_favorites(self, refresh=False):
         return self._get('members', self.member_id, 'favorites', 'channels',
-                         cache_key='favorites', cache_time=CACHE_TIME,
+                         cache_key='favorites', cache_time=10,
                          refresh=refresh)
 
     def get_qualities(self):
@@ -372,22 +380,23 @@ class AudioAddict:
         if all((channel, field)):
             query['facets[{}][]'.format(field)] = channel
 
-        return self._get('shows', cache_key=cache_key, cache_time=3600,
+        return self._get('shows', cache_key=cache_key, cache_time=60,
                          refresh=refresh, **query)
 
     def get_shows_followed(self, page=1, per_page=25, refresh=False):
         return self._get('members', self.member_id, 'followed_items', 'show',
-                         page=page, per_page=per_page, cache_time=CACHE_TIME,
+                         page=page, per_page=per_page, cache_time=10,
                          refresh=refresh)
 
     def get_show_episodes(self, slug, page=1, per_page=25, refresh=False):
         cache_key = 'show_episodes_{}_{}'.format(slug, page)
         return self._get('shows', slug, 'episodes', page=page,
                          per_page=per_page, cache_key=cache_key,
-                         cache_time=CACHE_TIME, refresh=refresh)
+                         cache_time=10, refresh=refresh)
 
     def get_upcoming(self, limit=24, refresh=False):
-        return self._get('events', 'upcoming', limit=limit, refresh=refresh)
+        return self._get('events', 'upcoming', limit=limit,
+                         cache_time=10, refresh=refresh)
 
     def get_track_list(self, channel, tune_in=True):
         channel_id = self.get_channel_id(channel)
