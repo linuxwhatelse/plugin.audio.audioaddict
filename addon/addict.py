@@ -4,7 +4,9 @@ import os
 import time
 import urllib
 from datetime import datetime
+
 import requests
+
 import dateutil
 from dateutil.parser import parse
 
@@ -384,8 +386,7 @@ class AudioAddict:
                          per_page=per_page, cache_key=cache_key,
                          cache_time=CACHE_TIME, refresh=refresh)
 
-    def get_upcoming(self, limit=10, start_at=None, end_at=None,
-                     refresh=False):
+    def get_upcoming(self, limit=24, refresh=False):
         return self._get('events', 'upcoming', limit=limit, refresh=refresh)
 
     def get_track_list(self, channel, tune_in=True):

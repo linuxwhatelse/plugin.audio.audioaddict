@@ -316,12 +316,13 @@ def play_channel(network, channel, cache=False):
         diag = xbmcgui.DialogProgressBG()
         diag.create(utils.translate(30316))
 
-    track = utils.next_track(network, channel, cache, pop=False)
+    is_live, track = utils.next_track(network, channel, cache, pop=False)
 
     if diag:
         diag.update(50)
 
-    item_url = utils.build_path('track', network, channel, track.get('id'))
+    item_url = utils.build_path('track', network, channel, track.get('id'),
+                                is_live=is_live)
 
     item = utils.build_track_item(track, item_url)
 
@@ -344,10 +345,11 @@ def play_channel(network, channel, cache=False):
         xbmc.Player().play()
 
 
-def resolve_track(network, channel, track_id, cache=True):
+def resolve_track(network, channel, track_id, is_live=False, cache=True):
+    utils.log('Resolivng:', network, channel, track_id)
     aa = addict.AudioAddict(PROFILE_DIR, network)
 
-    track = utils.next_track(network, channel, cache)
+    _is_live, track = utils.next_track(network, channel, cache, live=is_live)
     item = utils.build_track_item(track)
 
     xbmcplugin.setResolvedUrl(HANDLE, True, item)
@@ -359,27 +361,30 @@ def resolve_track(network, channel, track_id, cache=True):
 
     aa.add_listen_history(channel, track_id)
 
-    add_track(network, channel, track, cache)
+    add_track(network, channel, track, _is_live, cache)
 
 
-def add_track(network, channel, current_track=None, cache=False):
+def add_track(network, channel, current_track=None, current_is_live=False,
+              cache=False):
     if not current_track:
         current_track = {}
 
     playlist = xbmc.PlayList(xbmc.PLAYLIST_MUSIC)
     if playlist.getposition() + 2 >= playlist.size():
         utils.log('Adding another track to the playlist...')
-
-        next_track = utils.next_track(network, channel, cache)
+        is_live, next_track = utils.next_track(network, channel, cache,
+                                               live=not current_is_live)
+        utils.log(current_is_live, is_live)
         if current_track.get('id') == next_track.get('id'):
             # Was the same track as is already playing, get a new one
             utils.log('Same track, getting new one...')
-            next_track = utils.next_track(network, channel, cache,
-                                          incl_live=False)
+            is_live, next_track = utils.next_track(network, channel, cache,
+                                                   live=not is_live)
 
         next_item = utils.build_track_item(next_track)
         next_item.setPath(
-            utils.build_path('track', network, channel, next_track.get('id')))
+            utils.build_path('track', network, channel, next_track.get('id'),
+                             is_live=is_live))
 
         playlist.add(next_item.getPath(), next_item)
 

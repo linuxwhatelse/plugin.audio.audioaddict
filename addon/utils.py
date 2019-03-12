@@ -5,13 +5,12 @@ import urlparse
 from datetime import datetime
 
 import dateutil
-from dateutil.parser import parse
-
 import xbmc
 import xbmcaddon
 import xbmcgui
 import xbmcplugin
 from addon import HANDLE, addict
+from dateutil.parser import parse
 
 DEFAULT_LOG_LEVEL = xbmc.LOGNOTICE
 
@@ -43,16 +42,16 @@ def translate(id_):
     return ADDON.getLocalizedString(id_)
 
 
-def seek_offset(offset, timeout=3, interval=0.1):
+def seek_offset(offset, timeout=5, interval=1):
     player = xbmc.Player()
     monitor = xbmc.Monitor()
 
     waited = 0
     while not monitor.abortRequested():
         if player.isPlayingAudio():
-            player.seekTime(offset)
             if player.getTime() >= offset:
                 return True
+            player.seekTime(offset)
 
         if monitor.waitForAbort(interval):
             break
@@ -106,12 +105,13 @@ def build_path(*args, **kwargs):
     return url
 
 
-def next_track(network, channel, cache=True, pop=True, incl_live=True):
+def next_track(network, channel, cache=True, pop=True, live=True):
     aa = addict.AudioAddict(PROFILE_DIR, network)
 
+    is_live = False
     track = None
 
-    if incl_live:
+    if live:
         now = datetime.now(dateutil.tz.UTC)
         for show in aa.get_live_shows(refresh=not cache):
             channels = [
@@ -122,12 +122,15 @@ def next_track(network, channel, cache=True, pop=True, incl_live=True):
             if len(channels) == 0:
                 break
 
+            end_at = parse(show.get('end_at'))
+            if end_at < now:
+                break
+
             track = show.get('tracks')[0]
+            track['content']['offset'] = (
+                track.get('length') - (end_at - now).seconds)
 
-            time_left = parse(show.get('end_at')) - now
-            offset = track.get('length') - time_left.seconds
-
-            track['content']['offset'] = offset
+            is_live = True
 
             break
 
@@ -152,7 +155,7 @@ def next_track(network, channel, cache=True, pop=True, incl_live=True):
         with open(tracks_file, 'w') as f:
             f.write(json.dumps(track_list, indent=2))
 
-    return track
+    return (is_live, track)
 
 
 def add_aa_art(item, elem, thumb_key='compact', fanart_key='default'):
