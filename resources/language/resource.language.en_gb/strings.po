@@ -198,3 +198,18 @@ msgctxt "#30333"
 msgid "Live now"
 msgstr ""
 
+msgctxt "#30334"
+msgid "Follow Show"
+msgstr ""
+
+msgctxt "#30335"
+msgid "Unfollow Show"
+msgstr ""
+
+msgctxt "#30336"
+msgid "[B]{}[/B] followed."
+msgstr ""
+
+msgctxt "#30337"
+msgid "[B]{}[/B] unfollowed."
+msgstr ""

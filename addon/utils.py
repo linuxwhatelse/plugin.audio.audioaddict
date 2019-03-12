@@ -2,6 +2,7 @@ import json
 import os
 import urllib
 import urlparse
+from contextlib import contextmanager
 
 import xbmc
 import xbmcaddon
@@ -37,6 +38,14 @@ def notify(title, message='', icon=None, display_time=5000):
 def translate(id_):
     return ADDON.getLocalizedString(id_)
 
+@contextmanager
+def busy_dialog():
+    try:
+        xbmc.executebuiltin('ActivateWindow(busydialognocancel)')
+        yield
+
+    finally:
+        xbmc.executebuiltin('Dialog.Close(busydialognocancel)')
 
 def seek_offset(offset, timeout=5, interval=1):
     player = xbmc.Player()

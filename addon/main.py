@@ -115,21 +115,24 @@ def list_channels(network, style=None, channels=None, do_list=True):
             item.setPath(item_url)
             item = utils.add_aa_art(item, channel, 'default', 'compact')
 
-            cmenu = [
-                (utils.translate(30330), 'Container.Update({})'.format(
-                    utils.build_path('listen_history', network,
-                                     channel.get('key')))),
-            ]
+            cmenu = []
             if channel.get('id') not in favorites:
                 # Add to favorites
                 cmenu.append((utils.translate(30326), 'RunPlugin({})'.format(
                     utils.build_path('favorite', network, 'add',
-                                     channel.get('key')))))
+                                     channel.get('key'), channel_name=_enc(
+                                         channel.get('name'))))))
             else:
                 # Remove from favorites
                 cmenu.append((utils.translate(30327), 'RunPlugin({})'.format(
                     utils.build_path('favorite', network, 'remove',
-                                     channel.get('key')))))
+                                     channel.get('key'), channel_name=_enc(
+                                         channel.get('name'))))))
+
+            cmenu.append((utils.translate(30330),
+                          'Container.Update({})'.format(
+                              utils.build_path('listen_history', network,
+                                               channel.get('key')))))
 
             item.addContextMenuItems(cmenu, True)
             items.append((item_url, item, False))
@@ -161,8 +164,11 @@ def list_shows(network, filter_=None, channel=None, field=None, shows=None,
 
     per_page = ADDON.getSettingInt('aa.shows_per_page')
 
+    followed_shows = aa.get_shows_followed(page=page, per_page=per_page)
+    followed_slugs = [s.get('slug') for s in followed_shows]
+
     if filter_ == 'followed':
-        shows = aa.get_shows_followed(page=page, per_page=per_page)
+        shows = followed_shows
 
     elif filter_ == 'channels':
         _res = aa.get_shows(channel, field, page=page, per_page=per_page)
@@ -213,6 +219,23 @@ def list_shows(network, filter_=None, channel=None, field=None, shows=None,
                     utils.build_path('episodes', network, show.get('slug')))
                 item = utils.add_aa_art(item, show)
 
+            # Add context menu item(s)
+            cmenu = []
+            if (show.get('following', False)
+                    or show.get('slug') in followed_slugs):
+                # Unfollow show
+                cmenu.append((utils.translate(30335), 'RunPlugin({})'.format(
+                    utils.build_path('follow', network, 'remove',
+                                     show.get('slug'), show_name=_enc(
+                                         show.get('name'))))))
+            else:
+                # Follow show
+                cmenu.append((utils.translate(30334), 'RunPlugin({})'.format(
+                    utils.build_path('follow', network, 'add',
+                                     show.get('slug'), show_name=_enc(
+                                         show.get('name'))))))
+
+            item.addContextMenuItems(cmenu)
             items.append((item.getPath(), item, is_folder))
 
         if do_list and len(items) >= per_page:
@@ -280,22 +303,34 @@ def list_episodes(network, slug, page=1, do_list=True, refresh=False):
     utils.list_items(items)
 
 
-def favorite(network, action, channel):
+def favorite(network, action, channel, channel_name=''):
     aa = addict.AudioAddict(PROFILE_DIR, network)
 
-    channel_name = None
-    for chan in aa.get_channels():
-        if chan.get('key') == channel:
-            channel_name = _enc(chan.get('name'))
-            break
+    with utils.busy_dialog():
+        if action == 'add':
+            aa.add_favorite(channel)
+            utils.notify(utils.translate(30328).format(channel_name))
 
-    if action == 'add':
-        aa.add_favorite(channel)
-        utils.notify(utils.translate(30328).format(channel_name))
+        elif action == 'remove':
+            aa.remove_favorite(channel)
+            utils.notify(utils.translate(30329).format(channel_name))
 
-    elif action == 'remove':
-        aa.remove_favorite(channel)
-        utils.notify(utils.translate(30329).format(channel_name))
+    xbmc.executebuiltin('Container.Refresh')
+
+
+def follow(network, action, slug, show_name=''):
+    aa = addict.AudioAddict(PROFILE_DIR, network)
+
+    per_page = ADDON.getSettingInt('aa.shows_per_page')
+
+    with utils.busy_dialog():
+        if action == 'add':
+            aa.follow_show(slug)
+            utils.notify(utils.translate(30336).format(show_name))
+
+        elif action == 'remove':
+            aa.unfollow_show(slug)
+            utils.notify(utils.translate(30337).format(show_name))
 
     xbmc.executebuiltin('Container.Refresh')
 
@@ -505,6 +540,7 @@ def run():
             sys.exit(0)
 
     # --- Routing ---
+    # Actions
     if url.path[0] == 'setup':
         setup(False, True)
 
@@ -529,9 +565,16 @@ def run():
     elif url.path[0] == 'favorite':
         favorite(*url.path[1:], **url.query)
 
+    elif url.path[0] in 'follow':
+        follow(*url.path[1:], **url.query)
+
     elif url.path[0] == 'search':
         search(*url.path[1:], **url.query)
 
+    elif url.path[0] == 'track':
+        resolve_track(*url.path[1:], **url.query)
+
+    # Listing
     elif url.path[0] == 'networks':
         last_prompt = ADDON.getSettingInt('addon.last_premium_prompt')
         if not aa.is_premium and last_prompt + (3600 * 1) < time.time():
@@ -548,9 +591,6 @@ def run():
 
     elif url.path[0] == 'listen_history':
         list_listen_history(*url.path[1:], **url.query)
-
-    elif url.path[0] == 'track':
-        resolve_track(*url.path[1:], **url.query)
 
     elif url.path[0] == 'shows':
         list_shows(*url.path[1:], **url.query)

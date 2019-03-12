@@ -167,6 +167,16 @@ class AudioAddict:
         self.__cache[cache_file] = data
         return data
 
+    def _write_cache(self, cache_file, data):
+        self.__cache[cache_file] = data
+        with open(self._cache_file, 'w') as f:
+            f.write(json.dumps(data, indent=2))
+
+    def _update_cache(self, cache_file, key, data):
+        cache = self._cache
+        cache[key]['data'] = data
+        self._write_cache(self._cache_file, cache)
+
     def _api_call(self, method, *args, **kwargs):
         self._response = None
 
@@ -216,10 +226,7 @@ class AudioAddict:
                     _cache[cache_key]['cache_until'] = int(time.time() +
                                                            cache_time)
 
-                self.__cache[cache] = _cache
-
-                with open(cache, 'w') as f:
-                    f.write(json.dumps(_cache, indent=2))
+                self._write_cache(cache, _cache)
 
             return self._response.json()
 
@@ -232,6 +239,10 @@ class AudioAddict:
 
     def _post(self, *args, **kwargs):
         return self._api_call(requests.post, *args, auth=('mobile', 'apps'),
+                              **kwargs)
+
+    def _delete(self, *args, **kwargs):
+        return self._api_call(requests.delete, *args, auth=('mobile', 'apps'),
                               **kwargs)
 
     def invalidate_cache(self):
@@ -309,14 +320,14 @@ class AudioAddict:
 
     def add_favorite(self, channel):
         channel_id = self.get_channel_id(channel)
-        return self.manage_favorites(add=[channel_id])
+        return self.favorites(add=[channel_id])
 
     def remove_favorite(self, channel):
         channel_id = self.get_channel_id(channel)
-        return self.manage_favorites(remove=[channel_id])
+        return self.favorites(remove=[channel_id])
 
     def get_live_shows(self, refresh=False):
-        now = datetime.now(dateutil.tz.UTC)
+        now = datetime_now()
 
         shows = []
         for up in self.get_upcoming(refresh=refresh):
@@ -328,31 +339,15 @@ class AudioAddict:
 
         return shows
 
-    def get_live_show(self, channel, refresh=False):
-        for up in self.get_upcoming(refresh=refresh):
-            show = up.get('show', {})
-            if not show.get('now_playing', False):
-                continue
-
-            for chan in show.get('channels', []):
-                if chan.get('key') != channel:
-                    continue
-
-                return up
-
-        return None
-
     #
     # --- Get ---
     #
     def get_channel_filters(self, refresh=False):
-        return self._get('channel_filters', cache_time=1440,
-                         refresh=refresh)
+        return self._get('channel_filters', cache_time=1440, refresh=refresh)
 
     def get_favorites(self, refresh=False):
         return self._get('members', self.member_id, 'favorites', 'channels',
-                         cache_key='favorites', cache_time=10,
-                         refresh=refresh)
+                         cache_key='favorites', cache_time=10, refresh=refresh)
 
     def get_qualities(self):
         return self._get('qualities', cache=None, refresh=False)
@@ -385,18 +380,20 @@ class AudioAddict:
 
     def get_shows_followed(self, page=1, per_page=25, refresh=False):
         return self._get('members', self.member_id, 'followed_items', 'show',
-                         page=page, per_page=per_page, cache_time=10,
+                         page=page, per_page=per_page,
+                         cache_key='shows_followed', cache_time=10,
                          refresh=refresh)
 
     def get_show_episodes(self, slug, page=1, per_page=25, refresh=False):
         cache_key = 'show_episodes_{}_{}'.format(slug, page)
         return self._get('shows', slug, 'episodes', page=page,
-                         per_page=per_page, cache_key=cache_key,
-                         cache_time=10, refresh=refresh)
+                         per_page=per_page, cache_key=cache_key, cache_time=10,
+                         refresh=refresh)
 
     def get_upcoming(self, limit=24, refresh=False):
         return self._get('events', 'upcoming', limit=limit,
-                         cache_time=10, refresh=refresh)
+                         cache_key='shows_upcoming', cache_time=10,
+                         refresh=refresh)
 
     def get_track_list(self, channel, tune_in=True):
         channel_id = self.get_channel_id(channel)
@@ -441,7 +438,20 @@ class AudioAddict:
         return self._post('listen_history', channel_id=channel_id,
                           track_id=track_id, audio_token=self.audio_token)
 
-    def manage_favorites(self, add=None, remove=None):
+    def follow_show(self, show):
+        resp = self._post('members', self.member_id, 'followed_items', 'show',
+                          show, cache=None)
+
+        # Invalidate all show cache
+        cache = self._cache
+        for key in self._cache.keys():
+            if key.startswith('shows_'):
+                del cache[key]
+
+        self._write_cache(self._cache_file, cache)
+        return resp
+
+    def favorites(self, add=None, remove=None):
         if not add:
             add = []
 
@@ -460,5 +470,24 @@ class AudioAddict:
         for i, fav in enumerate(favorites):
             fav['position'] = i
 
-        return self._post('members', self.member_id, 'favorites', 'channels',
+        resp = self._post('members', self.member_id, 'favorites', 'channels',
                           payload={'favorites': favorites}, cache=None)
+
+        self._update_cache(self._cache_file, 'favorites', favorites)
+        return resp
+
+    #
+    # --- Delete ---
+    #
+    def unfollow_show(self, show):
+        resp = self._delete('members', self.member_id, 'followed_items',
+                            'show', show, cache=None)
+
+        # Invalidate all show cache
+        cache = self._cache
+        for key in self._cache.keys():
+            if key.startswith('shows_'):
+                del cache[key]
+
+        self._write_cache(self._cache_file, cache)
+        return resp
