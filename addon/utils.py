@@ -180,10 +180,11 @@ def add_aa_art(item, elem, thumb_key='compact', fanart_key='default'):
         'thumb': addict.convert_url(thumb, width=512),
     })
 
-    if ADDON.getSettingBool('view.fanart'):
-        item.setArt({
-            'fanart': addict.convert_url(fanart, height=720),
-        })
+    art = os.path.join(ADDON_DIR, 'fanart.jpg')
+    if ADDON.getSettingBool('view.fanart') and fanart:
+        art = addict.convert_url(fanart, height=720)
+
+    item.setArt({'fanart': art})
 
     return item
 
@@ -270,12 +271,11 @@ def list_items(items, sort_methods=None):
     for method in sort_methods:
         xbmcplugin.addSortMethod(HANDLE, method)
 
+    fanart = os.path.join(ADDON_DIR, 'fanart.jpg')
     for url, item, is_folder in items:
         if item.getArt('fanart'):
             continue
-        item.setArt({
-            'fanart': os.path.join(ADDON_DIR, 'fanart.jpg'),
-        })
+        item.setArt({'fanart': fanart})
 
     xbmcplugin.addDirectoryItems(HANDLE, items, len(items))
     xbmcplugin.endOfDirectory(HANDLE, cacheToDisc=False)
