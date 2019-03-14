@@ -575,7 +575,7 @@ def setup(notice=True, update_cache=False):
         ADDON.setSettingInt('addon.last_premium_prompt', int(time.time()))
 
     if update_cache:
-        update_networks(True)
+        update_networks()
 
     return True
 
