@@ -6,7 +6,6 @@ import urllib
 from datetime import datetime
 
 import requests
-
 from dateutil.parser import parse
 from dateutil.tz import tzlocal
 
@@ -454,7 +453,7 @@ class AudioAddict:
         cache_key = 'search_shows_{}'.format(query.lower())
         query = {'q': query, 'page': page, 'per_page': per_page}
 
-        return self._get('shows', cache_key=cache_key, cache_time=10**query)
+        return self._get('shows', cache_key=cache_key, cache_time=10, **query)
 
     def search_channels(self, query, page=1, per_page=25):
         cache_key = 'search_channels_{}'.format(query.lower())
