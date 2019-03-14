@@ -54,7 +54,7 @@ def list_network(network):
                   xbmcgui.ListItem(utils.translate(30321)), True))
 
     # Shows
-    if aa.is_premium and aa.network['has_shows']:
+    if aa.network['has_shows']:
         items.append((utils.build_path('shows', network),
                       xbmcgui.ListItem(utils.translate(30322)), True))
 
@@ -391,7 +391,7 @@ def search(network, filter_=None, query=None, page=1):
             return False
         query = k.getText()
 
-    if not aa.network['has_shows'] or not aa.is_premium:
+    if not aa.network['has_shows']:
         filter_ = 'channels'
 
     items = []

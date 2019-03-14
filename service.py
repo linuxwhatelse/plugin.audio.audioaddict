@@ -41,8 +41,7 @@ def monitor_live(skip_shows=None):
     for network in addict.NETWORKS.keys():
         aa = addict.AudioAddict.get(PROFILE_DIR, network)
 
-        if (not aa.is_active or not aa.is_premium
-                or not aa.network['has_shows']):
+        if not aa.is_active or not aa.network['has_shows']:
             continue
 
         followed = [s.get('slug') for s in aa.get_shows_followed()]
