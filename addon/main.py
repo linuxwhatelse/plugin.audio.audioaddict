@@ -8,7 +8,9 @@ import xbmcgui
 import xbmcplugin
 from addon import HANDLE, addict, utils
 from addon.utils import _enc
+from mapper import Mapper
 
+MPR = Mapper.get()
 ADDON = xbmcaddon.Addon()
 
 ADDON_DIR = xbmc.translatePath(ADDON.getAddonInfo('path'))
@@ -16,134 +18,140 @@ PROFILE_DIR = xbmc.translatePath(os.path.join(ADDON.getAddonInfo('profile')))
 
 TEST_LOGIN_NETWORK = 'difm'
 
-QUALITY_MAP = {
-    utils.translate(30200): 'aac_64k',  # Good (64k AAC)
-    utils.translate(30201): 'aac_128k',  # Excellent (128k AAC)
-    utils.translate(30202): 'mp3_320k',  # Excellent (320k MP3)
-}
 
-
-def list_networks(network=None, do_list=True):
+@MPR.s_url('/')
+@MPR.s_url('/networks/')
+def list_networks():
     items = []
 
-    if not network:
-        for key, data in addict.NETWORKS.iteritems():
-            item = xbmcgui.ListItem(data['name'])
-            item.setArt({
-                'thumb': os.path.join(ADDON_DIR, 'resources', 'assets',
-                                      key + '.png'),
+    for key, data in addict.NETWORKS.iteritems():
+        item = xbmcgui.ListItem(data['name'])
+        item.setArt({
+            'thumb': os.path.join(ADDON_DIR, 'resources', 'assets',
+                                  key + '.png'),
+        })
+
+        item.addContextMenuItems([
+            (utils.translate(30307), 'RunPlugin({})'.format(
+                utils.build_path('refresh', key))),
+        ], True)
+
+        items.append((utils.build_path('networks', key), item, True))
+
+    utils.list_items(items)
+
+
+@MPR.s_url('/networks/<network>/')
+def list_network(network):
+    items = []
+
+    aa = addict.AudioAddict.get(PROFILE_DIR, network)
+    xbmcplugin.setPluginCategory(HANDLE, aa.name)
+    xbmcplugin.setContent(HANDLE, 'files')
+
+    # Channels
+    items.append((utils.build_path('channels', network),
+                  xbmcgui.ListItem(utils.translate(30321)), True))
+
+    # Shows
+    if aa.is_premium and aa.network['has_shows']:
+        items.append((utils.build_path('shows', network),
+                      xbmcgui.ListItem(utils.translate(30322)), True))
+
+        items.append((utils.build_path('shows', network, 'schedule'),
+                      xbmcgui.ListItem(utils.translate(30332)), True))
+
+    # Search
+    items.append((utils.build_path('search', network),
+                  xbmcgui.ListItem(utils.translate(30323)), True))
+
+    utils.list_items(items)
+
+
+@MPR.s_url('/channels/<network>/')
+def list_styles(network):
+    aa = addict.AudioAddict.get(PROFILE_DIR, network)
+    xbmcplugin.setPluginCategory(HANDLE, aa.name)
+    xbmcplugin.setContent(HANDLE, 'albums')
+
+    items = []
+
+    filters = aa.get_channel_filters()
+    favorites = aa.get_favorite_channels()
+    if favorites:
+        filters.insert(
+            0, {
+                'key': 'favorites',
+                'name': utils.translate(30308),
+                'channels': favorites,
             })
 
-            item.addContextMenuItems([
-                (utils.translate(30307), 'RunPlugin({})'.format(
-                    utils.build_path('refresh', network=key))),
-            ], True)
+    for style in filters:
+        item = xbmcgui.ListItem('{} ({})'.format(
+            _enc(style.get('name')), len(style.get('channels', []))))
+        items.append((utils.build_path('channels', network, style.get('key')),
+                      item, True))
 
-            items.append((utils.build_path('networks', key), item, True))
-
-    else:
-        aa = addict.AudioAddict(PROFILE_DIR, network)
-        xbmcplugin.setPluginCategory(HANDLE, aa.name)
-        xbmcplugin.setContent(HANDLE, 'files')
-
-        # Channels
-        items.append((utils.build_path('channels', network),
-                      xbmcgui.ListItem(utils.translate(30321)), True))
-
-        # Shows
-        if aa.is_premium and aa.network['has_shows']:
-            items.append((utils.build_path('shows', network),
-                          xbmcgui.ListItem(utils.translate(30322)), True))
-
-            items.append((utils.build_path('shows', network, 'schedule'),
-                          xbmcgui.ListItem(utils.translate(30332)), True))
-
-        # Search
-        items.append((utils.build_path('search', network),
-                      xbmcgui.ListItem(utils.translate(30323)), True))
-
-    if not do_list:
-        return items
     utils.list_items(items)
 
 
+@MPR.s_url('/channels/<network>/<style>/')
 def list_channels(network, style=None, channels=None, do_list=True):
-    aa = addict.AudioAddict(PROFILE_DIR, network)
+    aa = addict.AudioAddict.get(PROFILE_DIR, network)
     xbmcplugin.setPluginCategory(HANDLE, aa.name)
+    xbmcplugin.setContent(HANDLE, 'songs')
 
     items = []
-    if not any((style, channels)):
-        xbmcplugin.setContent(HANDLE, 'albums')
 
-        filters = aa.get_channel_filters()
-        favorites = aa.get_favorite_channels()
-        if favorites:
-            filters.insert(
-                0, {
-                    'key': 'favorites',
-                    'name': utils.translate(30308),
-                    'channels': favorites,
-                })
+    if not channels:
+        if style == 'favorites':
+            channels = aa.get_favorite_channels()
+        else:
+            channels = aa.get_channels(style)
 
-        for style in filters:
-            item = xbmcgui.ListItem('{} ({})'.format(
-                _enc(style.get('name')), len(style.get('channels', []))))
-            items.append((utils.build_path('channels', network,
-                                           style.get('key')), item, True))
+    favorites = [f['channel_id'] for f in aa.get_favorites()]
+    # If I ever manage to get label2 to show, that's what we're going to
+    # put there...
+    # playing = {
+    #     p['channel_id']: p['track']
+    #     for p in aa.get_currently_playing()
+    # }
 
-    else:
-        xbmcplugin.setContent(HANDLE, 'songs')
+    for channel in channels:
+        item_url = utils.build_path('play', network, channel.get('key'))
 
-        if not channels:
-            if style == 'favorites':
-                channels = aa.get_favorite_channels()
-            else:
-                channels = aa.get_channels(style)
+        item = xbmcgui.ListItem(_enc(channel.get('name')))
+        item.setPath(item_url)
+        item = utils.add_aa_art(item, channel, 'default', 'compact')
 
-        favorites = [f['channel_id'] for f in aa.get_favorites()]
-        # If I ever manage to get label2 to show, that's what we're going to
-        # put there...
-        # playing = {
-        #     p['channel_id']: p['track']
-        #     for p in aa.get_currently_playing()
-        # }
+        cmenu = []
+        if channel.get('id') not in favorites:
+            # Add to favorites
+            cmenu.append((utils.translate(30326), 'RunPlugin({})'.format(
+                utils.build_path('favorite', network, channel.get('key'),
+                                 channel_name=_enc(channel.get('name'))))))
+        else:
+            # Remove from favorites
+            cmenu.append((utils.translate(30327), 'RunPlugin({})'.format(
+                utils.build_path('unfavorite', network, channel.get('key'),
+                                 channel_name=_enc(channel.get('name'))))))
 
-        for channel in channels:
-            item_url = utils.build_path('play', network, channel.get('key'))
+        cmenu.append((utils.translate(30330),
+                      'Container.Update({}, return)'.format(
+                          utils.build_path('listen_history', network,
+                                           channel.get('key')))))
 
-            item = xbmcgui.ListItem(_enc(channel.get('name')))
-            item.setPath(item_url)
-            item = utils.add_aa_art(item, channel, 'default', 'compact')
-
-            cmenu = []
-            if channel.get('id') not in favorites:
-                # Add to favorites
-                cmenu.append((utils.translate(30326), 'RunPlugin({})'.format(
-                    utils.build_path('favorite', network, 'add',
-                                     channel.get('key'), channel_name=_enc(
-                                         channel.get('name'))))))
-            else:
-                # Remove from favorites
-                cmenu.append((utils.translate(30327), 'RunPlugin({})'.format(
-                    utils.build_path('favorite', network, 'remove',
-                                     channel.get('key'), channel_name=_enc(
-                                         channel.get('name'))))))
-
-            cmenu.append((utils.translate(30330),
-                          'Container.Update({})'.format(
-                              utils.build_path('listen_history', network,
-                                               channel.get('key')))))
-
-            item.addContextMenuItems(cmenu, True)
-            items.append((item_url, item, False))
+        item.addContextMenuItems(cmenu, True)
+        items.append((item_url, item, False))
 
     if not do_list:
         return items
     utils.list_items(items)
 
 
+@MPR.s_url('/listen_history/<network>/<channel>/')
 def list_listen_history(network, channel):
-    aa = addict.AudioAddict(PROFILE_DIR, network)
+    aa = addict.AudioAddict.get(PROFILE_DIR, network)
     xbmcplugin.setPluginCategory(HANDLE, aa.name)
     xbmcplugin.setContent(HANDLE, 'songs')
 
@@ -157,124 +165,147 @@ def list_listen_history(network, channel):
     utils.list_items(items)
 
 
-def list_shows(network, filter_=None, channel=None, field=None, shows=None,
-               page=1, do_list=True):
-    aa = addict.AudioAddict(PROFILE_DIR, network)
+@MPR.s_url('/shows/<network>/')
+def list_shows_menu(network):
+    aa = addict.AudioAddict.get(PROFILE_DIR, network)
+    xbmcplugin.setPluginCategory(HANDLE, aa.name)
+
+    items = []
+
+    # Followed Shows
+    items.append((utils.build_path('shows', network, 'followed'),
+                  xbmcgui.ListItem(utils.translate(30324)), True))
+
+    # By Style
+    items.append((utils.build_path('shows', network, 'fields',
+                                   'channel_filter_name'),
+                  xbmcgui.ListItem(utils.translate(30325)), True))
+
+    # By Channel
+    items.append((utils.build_path('shows', network, 'fields', 'channel_name'),
+                  xbmcgui.ListItem(utils.translate(30316)), True))
+
+    # Schedule
+    items.append((utils.build_path('shows', network, 'schedule'),
+                  xbmcgui.ListItem(utils.translate(30332)), True))
+
+    utils.list_items(items)
+
+
+@MPR.s_url('/shows/<network>/followed/')
+def list_shows_followed(network, page=1):
+    aa = addict.AudioAddict.get(PROFILE_DIR, network)
     xbmcplugin.setPluginCategory(HANDLE, aa.name)
 
     per_page = ADDON.getSettingInt('aa.shows_per_page')
 
-    followed_shows = aa.get_shows_followed(page=page, per_page=per_page)
-    followed_slugs = [s.get('slug') for s in followed_shows]
-
-    if filter_ == 'followed':
-        shows = followed_shows
-
-    elif filter_ == 'channels':
-        _res = aa.get_shows(channel, field, page=page, per_page=per_page)
-        shows = _res.get('results', [])
-        facets = _res.get('metadata', {}).get('facets', [])
-
-    elif filter_ == 'schedule':
-        shows = aa.get_upcoming(refresh=True)
+    shows = aa.get_shows_followed(page=page, per_page=per_page)
 
     items = []
-    if shows:
-        now = addict.datetime_now()
-        for show in shows:
-            item = None
-            is_folder = True
+    for show in shows:
+        item = utils.build_show_item(network, show)
+        items.append((item.getPath(), item, True))
 
-            if filter_ == 'schedule':
-                is_folder = False
+    if len(items) >= per_page:
+        items.append((
+            utils.build_path('shows', network, 'followed', page=page + 1),
+            xbmcgui.ListItem(utils.translate(30318)),
+            True,
+        ))
 
-                start_at = addict.parse_datetime(show.get('start_at'))
-                end_at = addict.parse_datetime(show.get('end_at'))
-
-                if start_at.day > now.day:
-                    continue
-
-                show = show.get('show', {})
-                channel = show.get('channels', [])[0].get('key')
-                channel_name = _enc(show.get('channels', [])[0].get('name'))
-
-                item = xbmcgui.ListItem()
-                item = utils.add_aa_art(item, show)
-
-                if show.get('now_playing', False):
-                    item.setPath(utils.build_path('play', network, channel))
-                    label_prefix = utils.translate(30333)  # Live now
-
-                else:
-                    item.setPath(utils.build_path('dev', 'null'))
-                    label_prefix = '{} - {}'.format(
-                        start_at.strftime('%H:%M'), end_at.strftime('%H:%M'))
-
-                item.setLabel('[B]{}[/B] - {} [I]({})[/I]'.format(
-                    label_prefix, _enc(show.get('name')), channel_name))
-
-            else:
-                item = xbmcgui.ListItem(_enc(show.get('name')))
-                item.setPath(
-                    utils.build_path('episodes', network, show.get('slug')))
-                item = utils.add_aa_art(item, show)
-
-            # Add context menu item(s)
-            cmenu = []
-            if (show.get('following', False)
-                    or show.get('slug') in followed_slugs):
-                # Unfollow show
-                cmenu.append((utils.translate(30335), 'RunPlugin({})'.format(
-                    utils.build_path('follow', network, 'remove',
-                                     show.get('slug'), show_name=_enc(
-                                         show.get('name'))))))
-            else:
-                # Follow show
-                cmenu.append((utils.translate(30334), 'RunPlugin({})'.format(
-                    utils.build_path('follow', network, 'add',
-                                     show.get('slug'), show_name=_enc(
-                                         show.get('name'))))))
-
-            item.addContextMenuItems(cmenu)
-            items.append((item.getPath(), item, is_folder))
-
-        if do_list and len(items) >= per_page:
-            items.append((
-                utils.build_path('shows', network, 'channels', page=page + 1),
-                xbmcgui.ListItem(utils.translate(30318)),
-                True,
-            ))
-    else:
-        if not filter_:
-            # Followed Shows
-            items.append((utils.build_path('shows', network, 'followed'),
-                          xbmcgui.ListItem(utils.translate(30324)), True))
-
-            # By Channel
-            items.append((utils.build_path('shows', network, 'channels'),
-                          xbmcgui.ListItem(utils.translate(30325)), True))
-
-            # Schedule
-            items.append((utils.build_path('shows', network, 'schedule'),
-                          xbmcgui.ListItem(utils.translate(30332)), True))
-
-        elif filter_ == 'channels' and not all((channel, field)):
-            facets = sorted(facets, key=lambda f: f['name'])
-
-            for facet in facets:
-                item_url = utils.build_path('shows', network, 'channels',
-                                            facet.get('name'), field=facet.get(
-                                                'field', ''))
-                items.append((item_url, xbmcgui.ListItem(facet.get('label')),
-                              True))
-
-    if not do_list:
-        return items
     utils.list_items(items)
 
 
-def list_episodes(network, slug, page=1, do_list=True, refresh=False):
-    aa = addict.AudioAddict(PROFILE_DIR, network)
+@MPR.s_url('/shows/<network>/fields/<field>/')
+def list_shows_styles(network, field):
+    aa = addict.AudioAddict.get(PROFILE_DIR, network)
+    xbmcplugin.setPluginCategory(HANDLE, aa.name)
+
+    facets = aa.get_show_facets()
+    facets = sorted(facets, key=lambda f: f['name'])
+
+    items = []
+    for facet in facets:
+        if facet.get('field') != field:
+            continue
+
+        item_url = utils.build_path('shows', network, 'facets',
+                                    facet.get('name'))
+        items.append((item_url, xbmcgui.ListItem(_enc(facet.get('label'))),
+                      True))
+
+    utils.list_items(items)
+
+
+@MPR.s_url('/shows/<network>/facets/<facet>/')
+def list_shows(network, facet='All', page=1):
+    aa = addict.AudioAddict.get(PROFILE_DIR, network)
+    xbmcplugin.setPluginCategory(HANDLE, aa.name)
+
+    per_page = ADDON.getSettingInt('aa.shows_per_page')
+    shows = aa.get_shows(facet, page=page, per_page=per_page)
+
+    items = []
+    for show in shows:
+        item = utils.build_show_item(network, show)
+        items.append((item.getPath(), item, True))
+
+    if len(items) >= per_page:
+        items.append((
+            utils.build_path('shows', network, 'followed', page=page + 1),
+            xbmcgui.ListItem(utils.translate(30318)),
+            True,
+        ))
+
+    utils.list_items(items)
+
+
+@MPR.s_url('/shows/<network>/schedule/')
+def list_shows_schedule(network, page=1):
+    aa = addict.AudioAddict.get(PROFILE_DIR, network)
+    xbmcplugin.setPluginCategory(HANDLE, aa.name)
+
+    shows = aa.get_upcoming()
+    shows = sorted(shows, key=lambda s: s['start_at'])
+
+    # Shows for "get_upcoming" have "following" always set to False
+    # Have to work around this for now :/
+    followed_shows = aa.get_shows_followed()
+    followed_slugs = [s.get('slug') for s in followed_shows]
+
+    now = addict.datetime_now()
+
+    items = []
+    for show in shows:
+        start_at = addict.parse_datetime(show.get('start_at'))
+        end_at = addict.parse_datetime(show.get('end_at'))
+
+        if end_at < now:
+            continue
+
+        show = show.get('show', {})
+        channel = show.get('channels', [])[0]
+
+        item = utils.build_show_item(network, show, followed_slugs)
+        item.setPath(utils.build_path('play', network, channel.get('key')))
+
+        if start_at < now or show.get('now_playing', False):
+            label_prefix = utils.translate(30333)  # Live now
+        else:
+            label_prefix = '{} - {}'.format(
+                start_at.strftime('%H:%M'), end_at.strftime('%H:%M'))
+
+        item.setLabel('[B]{}[/B] - {} [I]({})[/I]'.format(
+            label_prefix, _enc(show.get('name')), _enc(channel.get('name'))))
+
+        items.append((item.getPath(), item, False))
+
+    utils.list_items(items)
+
+
+@MPR.s_url('/episodes/<network>/<slug>/', type_cast={'page': int})
+def list_episodes(network, slug, page=1):
+    aa = addict.AudioAddict.get(PROFILE_DIR, network)
     xbmcplugin.setContent(HANDLE, 'songs')
     xbmcplugin.setPluginCategory(HANDLE, aa.name)
 
@@ -298,45 +329,57 @@ def list_episodes(network, slug, page=1, do_list=True, refresh=False):
             True,
         ))
 
-    if not do_list:
-        return items
     utils.list_items(items)
 
 
-def favorite(network, action, channel, channel_name=''):
-    aa = addict.AudioAddict(PROFILE_DIR, network)
+@MPR.s_url('/favorite/<network>/<channel>/')
+def favorite(network, channel, channel_name=''):
+    aa = addict.AudioAddict.get(PROFILE_DIR, network)
 
     with utils.busy_dialog():
-        if action == 'add':
-            aa.add_favorite(channel)
-            utils.notify(utils.translate(30328).format(channel_name))
-
-        elif action == 'remove':
-            aa.remove_favorite(channel)
-            utils.notify(utils.translate(30329).format(channel_name))
+        aa.add_favorite(channel)
+        utils.notify(utils.translate(30328).format(channel_name))
 
     xbmc.executebuiltin('Container.Refresh')
 
 
-def follow(network, action, slug, show_name=''):
-    aa = addict.AudioAddict(PROFILE_DIR, network)
-
-    per_page = ADDON.getSettingInt('aa.shows_per_page')
+@MPR.s_url('/unfavorite/<network>/<channel>/')
+def favorite(network, channel, channel_name=''):
+    aa = addict.AudioAddict.get(PROFILE_DIR, network)
 
     with utils.busy_dialog():
-        if action == 'add':
-            aa.follow_show(slug)
-            utils.notify(utils.translate(30336).format(show_name))
-
-        elif action == 'remove':
-            aa.unfollow_show(slug)
-            utils.notify(utils.translate(30337).format(show_name))
+        aa.remove_favorite(channel)
+        utils.notify(utils.translate(30329).format(channel_name))
 
     xbmc.executebuiltin('Container.Refresh')
 
 
-def search(network, query=None, filter_=None, page=1):
-    aa = addict.AudioAddict(PROFILE_DIR, network)
+@MPR.s_url('/follow/<network>/<slug>/')
+def follow(network, slug, show_name=''):
+    aa = addict.AudioAddict.get(PROFILE_DIR, network)
+
+    with utils.busy_dialog():
+        aa.follow_show(slug)
+        utils.notify(utils.translate(30336).format(show_name))
+
+    xbmc.executebuiltin('Container.Refresh')
+
+
+@MPR.s_url('/unfollow/<network>/<slug>/')
+def unfollow(network, slug, show_name=''):
+    aa = addict.AudioAddict.get(PROFILE_DIR, network)
+
+    with utils.busy_dialog():
+        aa.unfollow_show(slug)
+        utils.notify(utils.translate(30337).format(show_name))
+
+    xbmc.executebuiltin('Container.Refresh')
+
+
+@MPR.s_url('/search/<network>/')
+@MPR.s_url('/search/<network>/<filter_>/<query>/', type_cast={'page': int})
+def search(network, filter_=None, query=None, page=1):
+    aa = addict.AudioAddict.get(PROFILE_DIR, network)
     xbmcplugin.setPluginCategory(HANDLE, aa.name)
 
     per_page = ADDON.getSettingInt('aa.shows_per_page')
@@ -351,71 +394,61 @@ def search(network, query=None, filter_=None, page=1):
     if not aa.network['has_shows'] or not aa.is_premium:
         filter_ = 'channels'
 
-    if filter_:
-        res = aa.search(query, page=page)
-
     items = []
     if not filter_:
         # Channels
-        items.append((utils.build_path('search', network, query, 'channels'),
+        items.append((utils.build_path('search', network, 'channels', query),
                       xbmcgui.ListItem(utils.translate(30321)), True))
 
         # Shows
-        items.append((utils.build_path('search', network, query, 'shows'),
+        items.append((utils.build_path('search', network, 'shows', query),
                       xbmcgui.ListItem(utils.translate(30322)), True))
 
-    elif filter_ == 'channels':
-        channels = res.get('channels', {}).get('items', [])
-        if channels:
-            items = list_channels(network, channels=channels, do_list=False)
+    else:
+        if filter_ == 'channels':
+            channels = aa.search_channels(query, page=page)
+            if channels:
+                items = list_channels(network, channels=channels,
+                                      do_list=False)
 
-    elif filter_ == 'shows':
-        shows = res.get('shows', {}).get('items', [])
-        if shows:
-            items = list_shows(network, shows=shows, do_list=False)
+        elif filter_ == 'shows':
+            for show in aa.search_shows(query, page).get('results', []):
+                item = utils.build_show_item(network, show)
+                items.append((item.getPath(), item, True))
 
-    if filter_ and len(items) >= per_page:
-        items.append((
-            utils.build_path('search', network, query, filter_, page=page + 1),
-            xbmcgui.ListItem(utils.translate(30318)),
-            True,
-        ))
+        if filter_ and len(items) >= per_page:
+            items.append((
+                utils.build_path('search', network, query, filter_,
+                                 page=page + 1),
+                xbmcgui.ListItem(utils.translate(30318)),
+                True,
+            ))
 
     utils.list_items(items)
 
 
-def play_channel(network, channel, cache=False):
-    aa = addict.AudioAddict(PROFILE_DIR, network)
-
-    valid_handle = HANDLE != -1
-
-    diag = None
-    if not valid_handle and not cache:
-        diag = xbmcgui.DialogProgressBG()
-        diag.create(utils.translate(30316))
-
-    is_live, track = utils.next_track(network, channel, cache, pop=False)
-
-    if diag:
-        diag.update(50)
-
-    item_url = utils.build_path('track', network, channel, track.get('id'),
-                                is_live=is_live)
-
-    item = utils.build_track_item(track, item_url)
-
-    if diag:
-        diag.update(100)
-        diag.close()
-
-    if valid_handle:
-        # Item activated through e.g. Chorus2
-        xbmcplugin.setResolvedUrl(HANDLE, False, item)
+@MPR.s_url('/play/<network>/<channel>/')
+def play_channel(network, channel):
+    # Item activated through e.g. Chorus2
+    # If we'd call "play" within this "session", kodi would crash.
+    if HANDLE != -1:
+        xbmcplugin.setResolvedUrl(HANDLE, False, xbmcgui.ListItem())
         xbmc.executebuiltin('RunPlugin({})'.format(
-            utils.build_path('play', network, channel, cache=True)))
+            utils.build_path('play', network, channel)))
+        return
 
-    else:
-        # Item activated through Kodi itself
+    utils.log('Fetching tracklist from server...')
+    with utils.busy_dialog():
+        is_live, track = utils.next_track(network, channel, cache=False,
+                                          pop=False, live=True)
+
+        utils.log('Activating first track: {}, is-live: {}'.format(
+            track.get('id'), is_live))
+        item_url = utils.build_path('track', network, channel, track.get('id'),
+                                    is_live=is_live)
+
+        item = utils.build_track_item(track, item_url)
+
         playlist = xbmc.PlayList(xbmc.PLAYLIST_MUSIC)
         playlist.clear()
         playlist.add(item.getPath(), item)
@@ -423,75 +456,92 @@ def play_channel(network, channel, cache=False):
         xbmc.Player().play()
 
 
-def resolve_track(network, channel, track_id, is_live=False, cache=True):
-    utils.log('Resolivng:', network, channel, track_id)
-    aa = addict.AudioAddict(PROFILE_DIR, network)
+@MPR.s_url('/track/<network>/<channel>/<track_id>/',
+           type_cast={'is_live': bool})
+def resolve_track(network, channel, track_id, is_live=False):
+    utils.log('Resolving track:', track_id)
+    aa = addict.AudioAddict.get(PROFILE_DIR, network)
 
-    _is_live, track = utils.next_track(network, channel, cache, live=is_live)
+    current_is_live, track = utils.next_track(network, channel, cache=True,
+                                              pop=True, live=is_live)
+
+    utils.log('Resolved track: {}, is-live: {}'.format(
+        track.get('id'), current_is_live))
     item = utils.build_track_item(track)
 
     xbmcplugin.setResolvedUrl(HANDLE, True, item)
 
     offset = track.get('content', {}).get('offset', 0)
-    if offset:
+    if ADDON.getSettingBool('addon.seek_offset') and offset:
+        # Have at least 30 sec. left to prevent the track ending before the
+        # next one has been queued
+        length = track.get('length')
+        offset = min(length - 30, offset)
+
         utils.log('Seeking to:', offset)
-        utils.seek_offset(offset)
+        if not utils.seek_offset(offset):
+            utils.log('Seeking failed!')
 
     aa.add_listen_history(channel, track_id)
 
-    add_track(network, channel, track, _is_live, cache)
-
-
-def add_track(network, channel, current_track=None, current_is_live=False,
-              cache=False):
-    if not current_track:
-        current_track = {}
-
+    # Queue another track if it's the last one playing
     playlist = xbmc.PlayList(xbmc.PLAYLIST_MUSIC)
-    if playlist.getposition() + 2 >= playlist.size():
-        utils.log('Adding another track to the playlist...')
-        is_live, next_track = utils.next_track(network, channel, cache,
-                                               live=not current_is_live)
-        utils.log(current_is_live, is_live)
-        if current_track.get('id') == next_track.get('id'):
-            # Was the same track as is already playing, get a new one
-            utils.log('Same track, getting new one...')
-            is_live, next_track = utils.next_track(network, channel, cache,
-                                                   live=not is_live)
+    if playlist.getposition() + 2 < playlist.size():
+        return
 
-        next_item = utils.build_track_item(next_track)
-        next_item.setPath(
-            utils.build_path('track', network, channel, next_track.get('id'),
-                             is_live=is_live))
+    utils.log('Adding another track to the playlist...')
+    is_live, track = utils.next_track(network, channel, cache=True, pop=False,
+                                      live=not current_is_live)
 
-        playlist.add(next_item.getPath(), next_item)
+    item = utils.build_track_item(track)
+    item.setPath(
+        utils.build_path('track', network, channel, track.get('id'),
+                         is_live=is_live))
+
+    utils.log('Queuing track: {}, is-live: {}'.format(
+        track.get('id'), is_live))
+    playlist.add(item.getPath(), item)
 
 
-def update_networks(networks=None):
-    if not networks:
+@MPR.s_url('/refresh/')
+@MPR.s_url('/refresh/<network>/')
+def update_networks(network=None):
+    networks = None
+    if network:
+        networks = [network]
+    else:
         networks = addict.NETWORKS.keys()
 
     diag = xbmcgui.DialogProgress()
     diag.create(utils.translate(30312))
 
-    utils.log('Updating network', networks)
-    for i, network in enumerate(networks):
-        progress = i * 100 / len(networks)
-        aa = addict.AudioAddict(PROFILE_DIR, network)
+    quality_id = utils.get_quality_id(TEST_LOGIN_NETWORK)
+    utils.log('Got quality-id:', quality_id)
 
+    for i, network in enumerate(networks):
+        utils.log('Updating network', network)
+        aa = addict.AudioAddict.get(PROFILE_DIR, network)
+
+        progress = i * 100 / len(networks)
         diag.update(progress, utils.translate(30313).format(aa.name))
+
         aa.get_channels(refresh=True)
         aa.get_favorite_channels(refresh=True)
+
+        if aa.is_premium:
+            utils.log('Setting preferred quality')
+            aa.preferred_quality(quality_id)
 
     diag.update(100, utils.translate(30314))
     diag.close()
 
 
+@MPR.s_url('/setup/', type_cast={'notice': bool, 'update_cache': bool})
 def setup(notice=True, update_cache=False):
     for network in addict.NETWORKS.keys():
-        addict.AudioAddict(PROFILE_DIR, network).logout()
+        addict.AudioAddict.get(PROFILE_DIR, network).logout()
 
-    aa = addict.AudioAddict(PROFILE_DIR, TEST_LOGIN_NETWORK)
+    aa = addict.AudioAddict.get(PROFILE_DIR, TEST_LOGIN_NETWORK)
 
     ADDON.setSetting('aa.email', '')
 
@@ -525,75 +575,41 @@ def setup(notice=True, update_cache=False):
         ADDON.setSettingInt('addon.last_premium_prompt', int(time.time()))
 
     if update_cache:
-        update_networks()
+        update_networks(True)
 
     return True
 
 
-def run():
-    utils.log(sys.argv[0] + sys.argv[2])
-    url = utils.parse_url(sys.argv[0] + sys.argv[2], 'networks')
+@MPR.s_url('/logout/')
+def logout():
+    for network in addict.NETWORKS.keys():
+        addict.AudioAddict.get(PROFILE_DIR, network).logout()
 
-    aa = addict.AudioAddict(PROFILE_DIR, TEST_LOGIN_NETWORK)
-    if not aa.is_active and url.path[0] not in ['setup', 'logout']:
+    utils.clear_cache()
+
+    ADDON.setSetting('aa.email', '')
+    utils.notify(utils.translate(30306))
+    sys.exit(0)
+
+
+@MPR.s_url('/clear_cache/')
+def clear_cache():
+    utils.clear_cache()
+    utils.notify(utils.translate(30315))
+    sys.exit(0)
+
+
+def run():
+    url = sys.argv[0] + sys.argv[2]
+    utils.log(HANDLE, url)
+
+    aa = addict.AudioAddict.get(PROFILE_DIR, TEST_LOGIN_NETWORK)
+
+    url_parsed = utils.parse_url(url)
+    path_ = next(iter(url_parsed.path), '')
+
+    if not aa.is_active and path_ not in ['setup', 'logout', 'clear_cache']:
         if not setup(True, True):
             sys.exit(0)
 
-    # --- Routing ---
-    # Actions
-    if url.path[0] == 'setup':
-        setup(False, True)
-
-    elif url.path[0] == 'logout':
-        for network in addict.NETWORKS.keys():
-            addict.AudioAddict(PROFILE_DIR, network).logout()
-
-        utils.clear_cache()
-
-        ADDON.setSetting('aa.email', '')
-        utils.notify(utils.translate(30306))
-        sys.exit(0)
-
-    elif url.path[0] == 'clear_cache':
-        utils.clear_cache()
-        utils.notify(utils.translate(30315))
-
-    elif url.path[0] == 'refresh':
-        network = url.query.get('network')
-        update_networks(filter(None, [network]))
-
-    elif url.path[0] == 'favorite':
-        favorite(*url.path[1:], **url.query)
-
-    elif url.path[0] in 'follow':
-        follow(*url.path[1:], **url.query)
-
-    elif url.path[0] == 'search':
-        search(*url.path[1:], **url.query)
-
-    elif url.path[0] == 'track':
-        resolve_track(*url.path[1:], **url.query)
-
-    # Listing
-    elif url.path[0] == 'networks':
-        last_prompt = ADDON.getSettingInt('addon.last_premium_prompt')
-        if not aa.is_premium and last_prompt + (3600 * 1) < time.time():
-            utils.go_premium()
-            ADDON.setSettingInt('addon.last_premium_prompt', int(time.time()))
-
-        list_networks(*url.path[1:], **url.query)
-
-    elif url.path[0] == 'play':
-        play_channel(*url.path[1:], **url.query)
-
-    elif url.path[0] == 'channels':
-        list_channels(*url.path[1:], **url.query)
-
-    elif url.path[0] == 'listen_history':
-        list_listen_history(*url.path[1:], **url.query)
-
-    elif url.path[0] == 'shows':
-        list_shows(*url.path[1:], **url.query)
-
-    elif url.path[0] == 'episodes':
-        list_episodes(*url.path[1:], **url.query)
+    MPR.call(url)

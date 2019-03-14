@@ -38,6 +38,7 @@ def notify(title, message='', icon=None, display_time=5000):
 def translate(id_):
     return ADDON.getLocalizedString(id_)
 
+
 @contextmanager
 def busy_dialog():
     try:
@@ -47,49 +48,36 @@ def busy_dialog():
     finally:
         xbmc.executebuiltin('Dialog.Close(busydialognocancel)')
 
-def seek_offset(offset, timeout=5, interval=1):
+
+def seek_offset(offset, timeout=5, interval=0.1):
     player = xbmc.Player()
     monitor = xbmc.Monitor()
 
     waited = 0
     while not monitor.abortRequested():
         if player.isPlayingAudio():
-            if player.getTime() >= offset:
-                return True
-            player.seekTime(offset)
+            # Initially we get times from the previous playback or something
+            if player.getTime() > 0 and player.getTime() < 1:
+                break
 
         if monitor.waitForAbort(interval):
-            break
+            return False
 
         if waited >= timeout:
-            break
+            return False
 
         waited += interval
 
-    return False
+    player.seekTime(offset)
+    return True
 
 
 def parse_url(url, base=None):
     url = urlparse.urlparse(url)
 
     params = dict(urlparse.parse_qsl(url.query))
-    for k, v in params.iteritems():
-        if v.lower() in ('true', 'false'):
-            params[k] = v.lower() == 'true'
-        else:
-            try:
-                params[k] = int(v)
-                continue
-            except ValueError:
-                pass
-
-            try:
-                params[k] = float(v)
-                continue
-            except ValueError:
-                pass
-
     url = url._replace(query=params)
+
     path_ = filter(
         None, [urllib.unquote_plus(e) for e in url.path.strip('/').split('/')])
     if base and not path_:
@@ -100,7 +88,8 @@ def parse_url(url, base=None):
 
 
 def build_path(*args, **kwargs):
-    args = '/'.join([urllib.quote_plus(_enc(str(e))) for e in args])
+    # args = '/'.join([urllib.quote_plus(_enc(str(e))) for e in args])
+    args = '/'.join([_enc(str(e)) for e in args])
     url = 'plugin://{}/{}'.format(ADDON.getAddonInfo('id'), args)
 
     kwargs = urllib.urlencode(kwargs)
@@ -110,8 +99,25 @@ def build_path(*args, **kwargs):
     return url
 
 
-def next_track(network, channel, cache=True, pop=True, live=True):
-    aa = addict.AudioAddict(PROFILE_DIR, network)
+def get_quality_id(network):
+    quality_map = {0: 'medium', 1: 'high', 2: 'ultra'}
+    quality_key = quality_map[ADDON.getSettingInt('aa.quality')]
+
+    aa = addict.AudioAddict.get(PROFILE_DIR, network)
+
+    quality_id = None
+    for quality in aa.get_qualities():
+        # In case the requested quality does not exist we make sure
+        # at least something is returned
+        quality_id = quality.get('id')
+        if quality.get('key') == quality_key:
+            break
+
+    return quality_id
+
+
+def next_track(network, channel, cache=True, pop=False, live=True):
+    aa = addict.AudioAddict.get(PROFILE_DIR, network)
 
     is_live = False
     track = None
@@ -125,18 +131,18 @@ def next_track(network, channel, cache=True, pop=True, live=True):
             ]
 
             if len(channels) == 0:
-                break
+                continue
 
             end_at = addict.parse_datetime(show.get('end_at'))
             if end_at < now:
                 break
 
             track = show.get('tracks')[0]
-            track['content']['offset'] = (
-                track.get('length') - (end_at - now).seconds)
+
+            time_left = (end_at - now).seconds
+            track['content']['offset'] = track.get('length') - time_left
 
             is_live = True
-
             break
 
     if not track:
@@ -148,17 +154,19 @@ def next_track(network, channel, cache=True, pop=True, live=True):
             with open(tracks_file, 'r') as f:
                 track_list = json.loads(f.read())
 
+        new = False
         if (track_list.get('channel_id') != channel_id
-                or len(track_list.get('tracks')) < 1):
+                or len(track_list.get('tracks', [])) < 1):
+            new = True
             track_list = aa.get_track_list(channel)
 
+        track = track_list['tracks'][0]
         if pop:
-            track = track_list['tracks'].pop(0)
-        else:
-            track = track_list['tracks'][0]
+            track_list['tracks'].pop(0)
 
-        with open(tracks_file, 'w') as f:
-            f.write(json.dumps(track_list, indent=2))
+        if new or pop:
+            with open(tracks_file, 'w') as f:
+                f.write(json.dumps(track_list, indent=2))
 
     return (is_live, track)
 
@@ -168,19 +176,44 @@ def add_aa_art(item, elem, thumb_key='compact', fanart_key='default'):
     fanart = elem.get('images', {}).get(fanart_key, thumb)
 
     item.setArt({
-        'icon': addict.AudioAddict.url(thumb, width=512),
-        'thumb': addict.AudioAddict.url(thumb, width=512),
+        'icon': addict.convert_url(thumb, width=512),
+        'thumb': addict.convert_url(thumb, width=512),
     })
 
     if ADDON.getSettingBool('view.fanart'):
         item.setArt({
-            'fanart': addict.AudioAddict.url(fanart, height=720),
+            'fanart': addict.convert_url(fanart, height=720),
         })
 
     return item
 
 
-def build_track_item(track, item_path=None, set_offset=True):
+def build_show_item(network, show, followed_slugs=None):
+    if not followed_slugs:
+        followed_slugs = []
+
+    item = xbmcgui.ListItem(_enc(show.get('name')))
+    item.setPath(build_path('episodes', network, show.get('slug')))
+    item = add_aa_art(item, show)
+
+    # Add context menu item(s)
+    cmenu = []
+    if (show.get('following', False) or show.get('slug') in followed_slugs):
+        # Unfollow show
+        cmenu.append((translate(30335), 'RunPlugin({})'.format(
+            build_path('unfollow', network, show.get('slug'), show_name=_enc(
+                show.get('name'))))))
+    else:
+        # Follow show
+        cmenu.append((translate(30334), 'RunPlugin({})'.format(
+            build_path('follow', network, show.get('slug'), show_name=_enc(
+                show.get('name'))))))
+
+    item.addContextMenuItems(cmenu)
+    return item
+
+
+def build_track_item(track, item_path=None):
     asset = track.get('content', {}).get('assets', {})
     if asset:
         asset = asset[0]
@@ -190,14 +223,14 @@ def build_track_item(track, item_path=None, set_offset=True):
         or track.get('display_arist', ''))
     title = _enc(track.get('title') or track.get('display_title', ''))
     duration = track.get('length')
-    offset = track.get('content', {}).get('offset', 0)
 
     item = xbmcgui.ListItem('{} - {}'.format(artist, title))
     if item_path:
         item.setPath(item_path)
     else:
-        item.setPath(addict.AudioAddict.url(asset.get('url')))
+        item.setPath(addict.convert_url(asset.get('url')))
 
+    item = add_aa_art(item, track, 'default')
     item.setInfo(
         'music', {
             'mediatype': 'music',
@@ -205,19 +238,9 @@ def build_track_item(track, item_path=None, set_offset=True):
             'title': title,
             'duration': duration,
         })
-    item = add_aa_art(item, track, 'default')
 
     item.setProperty('IsPlayable', 'true')
-
-    # Don't think this is necessary...
-    # item.setProperty('IsInternetStream', 'true')
-
-    # Only set because of "StartOffset"
-    # item.setProperty('TotalTime', str(duration))
-
-    # Doesn't work with xbmc.Player().player
-    # if set_offset and offset > 0:
-    #     item.setProperty('StartOffset', str(offset))
+    item.setProperty('IsInternetStream', 'true')
 
     return item
 
@@ -228,7 +251,7 @@ def go_premium():
 
 def clear_cache():
     for network in addict.NETWORKS.keys():
-        aa = addict.AudioAddict(PROFILE_DIR, network)
+        aa = addict.AudioAddict.get(PROFILE_DIR, network)
         if os.path.exists(aa.cache_file):
             os.remove(aa.cache_file)
 

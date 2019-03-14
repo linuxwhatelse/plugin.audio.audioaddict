@@ -25,7 +25,7 @@ msgstr ""
 
 # -- Settings --
 msgctxt "#30100"
-msgid "Add extra fanart"
+msgid "Show extra fanart"
 msgstr ""
 
 msgctxt "#30101"
@@ -45,7 +45,7 @@ msgid "Logged in as"
 msgstr ""
 
 msgctxt "#30105"
-msgid "Shows/Episodes per page"
+msgid "Shows / Episodes per page"
 msgstr ""
 
 msgctxt "#30106"
@@ -58,6 +58,26 @@ msgstr ""
 
 msgctxt "#30108"
 msgid "Tune in if the currently playing channel goes live"
+msgstr ""
+
+msgctxt "#30109"
+msgid "Streaming Quality (Only affects Premium Subscriptions)"
+msgstr ""
+
+msgctxt "#30110"
+msgid "Medium (64 kbit/s AAC-HE)"
+msgstr ""
+
+msgctxt "#30111"
+msgid "High (128 kbit/s AAC)"
+msgstr ""
+
+msgctxt "#30112"
+msgid "Ultra (320 kbit/s MP3)"
+msgstr ""
+
+msgctxt "#30113"
+msgid "Sync streams to match live"
 msgstr ""
 
 
@@ -127,7 +147,7 @@ msgid "Clearing cache successful"
 msgstr ""
 
 msgctxt "#30316"
-msgid "Generating tracklist for your listening pleasure..."
+msgid "By Channel"
 msgstr ""
 
 msgctxt "#30317"
@@ -151,7 +171,7 @@ msgid "Channels"
 msgstr ""
 
 msgctxt "#30322"
-msgid "Mix Shows"
+msgid "Show Catalog"
 msgstr ""
 
 msgctxt "#30323"
@@ -163,7 +183,7 @@ msgid "Followed"
 msgstr ""
 
 msgctxt "#30325"
-msgid "By Channel"
+msgid "By Style"
 msgstr ""
 
 msgctxt "#30326"

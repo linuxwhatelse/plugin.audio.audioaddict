@@ -7,7 +7,6 @@ from datetime import datetime
 
 import requests
 
-import dateutil
 from dateutil.parser import parse
 from dateutil.tz import tzlocal
 
@@ -93,7 +92,25 @@ def parse_datetime(val):
     return parse(val).astimezone(tzlocal())
 
 
+def convert_url(url, **kwargs):
+    if not url:
+        return None
+
+    url = url.split('{?')[0]
+
+    query = urllib.urlencode(kwargs)
+    if query:
+        url += '?{}'.format(query)
+
+    if url.startswith('//'):
+        url = 'https:' + url
+
+    return url
+
+
 class AudioAddict:
+    __instances = {}
+
     data = None
 
     name = None
@@ -106,34 +123,25 @@ class AudioAddict:
     _response = None
     __cache = None
 
-    def __init__(self, _cache_dir, network):
+    def __init__(self, cache_dir, network):
         self.__cache = {}
 
         self.name = NETWORKS[network]['name']
 
-        if not os.path.exists(_cache_dir):
-            os.makedirs(_cache_dir)
+        if not os.path.exists(cache_dir):
+            os.makedirs(cache_dir)
 
-        self._cache_file = os.path.join(_cache_dir, network + '.json')
-        self._ccache_file = os.path.join(_cache_dir, 'common.json')
+        self._cache_file = os.path.join(cache_dir, network + '.json')
+        self._ccache_file = os.path.join(cache_dir, 'common.json')
 
         self._network = NETWORKS[network]
 
-    @staticmethod
-    def url(url, **kwargs):
-        if not url:
-            return None
-
-        url = url.split('{?')[0]
-
-        query = urllib.urlencode(kwargs)
-        if query:
-            url += '?{}'.format(query)
-
-        if url.startswith('//'):
-            url = 'https:' + url
-
-        return url
+    @classmethod
+    def get(cls, cache_dir, network):
+        key = cache_dir + network
+        if key not in cls.__instances:
+            cls.__instances[key] = cls(cache_dir, network)
+        return cls.__instances[key]
 
     @property
     def network(self):
@@ -167,48 +175,54 @@ class AudioAddict:
         self.__cache[cache_file] = data
         return data
 
-    def _write_cache(self, cache_file, data):
-        self.__cache[cache_file] = data
-        with open(self._cache_file, 'w') as f:
-            f.write(json.dumps(data, indent=2))
+    def _write_cache(self, cache_file, cache):
+        self.__cache[cache_file] = cache
+        with open(cache_file, 'w') as f:
+            f.write(json.dumps(cache, indent=2))
 
-    def _update_cache(self, cache_file, key, data):
-        cache = self._cache
-        cache[key]['data'] = data
-        self._write_cache(self._cache_file, cache)
+    def _update_cache(self, cache_file, key, data=None, cache_time=None):
+        cache = self.__cache.get(cache_file, {})
+        cache.setdefault(key, {})
 
-    def _api_call(self, method, *args, **kwargs):
+        if data is not None:
+            cache[key]['data'] = data
+
+        if cache_time:
+            cache[key]['expires_on'] = int(time.time() + (cache_time * 60))
+
+        self._write_cache(cache_file, cache)
+
+    def _api_call(self, method, paths, auth=None, payload=None, is_json=True,
+                  cache='default', cache_key=None, cache_time=0, refresh=False,
+                  **query):
+
         self._response = None
+        paths = [str(p) for p in paths]
 
-        args = [str(e) for e in args]
+        if cache == 'default':
+            cache = self._cache_file
 
-        auth = kwargs.pop('auth', None)
-        payload = kwargs.pop('payload', None)
-        is_json = kwargs.pop('is_json', True)
-
-        cache = kwargs.pop('cache', self._cache_file)
-        cache_key = kwargs.pop('cache_key', '_'.join(args))
-        cache_time = kwargs.pop('cache_time', 0) * 60
-        refresh = kwargs.pop('refresh', False)
+        if not cache_key:
+            cache_key = '_'.join(paths)
 
         if not refresh and cache and os.path.exists(cache):
             _cache = (self.__cache.get(cache, {}).get(cache_key, {})
                       or self._read_cache(cache).get(cache_key, {}))
-            cache_until = _cache.get('cache_until')
+            expires_on = _cache.get('expires_on')
             if _cache:
-                if not cache_until:
+                if not expires_on:
                     return _cache.get('data')
                 else:
-                    if cache_until > time.time():
+                    if expires_on > time.time():
                         return _cache.get('data')
 
-        args = '/'.join([urllib.quote_plus(arg) for arg in args])
-        url = '/'.join([self._network['api_url'].rstrip('/'), args])
+        paths = '/'.join([urllib.quote_plus(p) for p in paths])
+        url = '/'.join([self._network['api_url'].rstrip('/'), paths])
 
-        if 'api_key' not in kwargs and self.api_key:
-            kwargs['api_key'] = self.api_key
+        if 'api_key' not in query and self.api_key:
+            query['api_key'] = self.api_key
 
-        query = urllib.urlencode(kwargs)
+        query = urllib.urlencode(query)
         if query:
             url += '?{}'.format(query)
 
@@ -218,38 +232,38 @@ class AudioAddict:
                 data = {'json': payload}
 
             self._response = method(url, auth=auth, **data)
-
+            cache_data = self._response.json()
             if cache:
-                _cache = self._read_cache(cache)
-                _cache[cache_key] = {'data': self._response.json()}
-                if cache_time > 0:
-                    _cache[cache_key]['cache_until'] = int(time.time() +
-                                                           cache_time)
+                self._update_cache(cache, cache_key, cache_data, cache_time)
 
-                self._write_cache(cache, _cache)
-
-            return self._response.json()
+            return cache_data
 
         except Exception:
             return {}
 
-    def _get(self, *args, **kwargs):
-        return self._api_call(requests.get, *args, auth=('mobile', 'apps'),
+    def _get(self, *paths, **kwargs):
+        return self._api_call(requests.get, paths, auth=('mobile', 'apps'),
                               **kwargs)
 
-    def _post(self, *args, **kwargs):
-        return self._api_call(requests.post, *args, auth=('mobile', 'apps'),
-                              **kwargs)
+    def _post(self, *paths, **kwargs):
+        cache = kwargs.get('cache', None)
+        if cache:
+            kwargs.pop('cache')
+        return self._api_call(requests.post, paths, auth=('mobile', 'apps'),
+                              cache=cache, **kwargs)
 
-    def _delete(self, *args, **kwargs):
-        return self._api_call(requests.delete, *args, auth=('mobile', 'apps'),
-                              **kwargs)
+    def _delete(self, *paths, **kwargs):
+        cache = kwargs.get('cache', None)
+        if cache:
+            kwargs.pop('cache')
+        return self._api_call(requests.delete, paths, auth=('mobile', 'apps'),
+                              cache=cache, **kwargs)
 
     def invalidate_cache(self):
         cache = self._read_cache(self._cache_file)
         for key in cache.keys():
-            cache_until = cache[key].get('cache_until')
-            if cache_until and cache_until < time.time():
+            expires_on = cache[key].get('expires_on')
+            if expires_on and expires_on < time.time():
                 del cache[key]
 
         with open(self._cache_file, 'w') as f:
@@ -342,8 +356,18 @@ class AudioAddict:
     #
     # --- Get ---
     #
+    def get_member_session(self):
+        return self._get('member_sessions', self.user.get('key'),
+                         cache=self._ccache_file, cache_key='user',
+                         refresh=True)
+
+    def get_subscriptions(self):
+        return self._get('members', self.member_id, 'subscriptions', 'active',
+                         cache=None)
+
     def get_channel_filters(self, refresh=False):
-        return self._get('channel_filters', cache_time=1440, refresh=refresh)
+        return self._get('channel_filters', cache_time=24 * 60,
+                         refresh=refresh)
 
     def get_favorites(self, refresh=False):
         return self._get('members', self.member_id, 'favorites', 'channels',
@@ -364,19 +388,30 @@ class AudioAddict:
     def get_track(self, track_id):
         return self._get('tracks', track_id, cache=None)
 
-    def get_shows(self, channel=None, field=None, page=1, per_page=25,
-                  refresh=False):
-        if any((channel, field)) and not all((channel, field)):
-            raise ValueError('"channel" and "field" are mutually inclusive.')
+    def get_show_facets(self, refresh=False):
+        res = self._get('shows', cache_key='show_facets', cache_time=24 * 60,
+                        refresh=refresh, page=1, per_page=0)
+        return res.get('metadata', {}).get('facets', [])
 
-        cache_key = 'shows_{}'.format(page)
-        query = {'page': page, 'per_page': per_page}
+    def get_shows(self, channel, page=1, per_page=25, refresh=False):
+        for facet in self.get_show_facets():
+            if facet.get('name') == channel:
+                field = facet.get('field')
+                break
 
-        if all((channel, field)):
-            query['facets[{}][]'.format(field)] = channel
+        if not field:
+            raise ValueError(
+                'Unable to determin a valid field for channel "{}"'.format(
+                    channel))
 
+        cache_key = 'shows_{}_{}'.format(channel, page)
+        query = {
+            'facets[{}][]'.format(field): channel,
+            'page': page,
+            'per_page': per_page,
+        }
         return self._get('shows', cache_key=cache_key, cache_time=60,
-                         refresh=refresh, **query)
+                         refresh=refresh, **query).get('results', [])
 
     def get_shows_followed(self, page=1, per_page=25, refresh=False):
         return self._get('members', self.member_id, 'followed_items', 'show',
@@ -410,8 +445,23 @@ class AudioAddict:
         return self._get('listen_history', channel_id=channel_id, cache=None)
 
     def search(self, query, page=1, per_page=25):
+        cache_key = 'search_{}'.format(query.lower())
         query = {'q': query, 'page': page, 'per_page': per_page}
-        return self._get('search', cache=None, **query)
+
+        return self._get('search', cache_key=cache_key, cache_time=10, **query)
+
+    def search_shows(self, query, page=1, per_page=25):
+        cache_key = 'search_shows_{}'.format(query.lower())
+        query = {'q': query, 'page': page, 'per_page': per_page}
+
+        return self._get('shows', cache_key=cache_key, cache_time=10**query)
+
+    def search_channels(self, query, page=1, per_page=25):
+        cache_key = 'search_channels_{}'.format(query.lower())
+        query = {'q': query, 'page': page, 'per_page': per_page}
+
+        return self._get('channels', cache_key=cache_key, cache_time=10,
+                         **query)
 
     def get_premium_stream_url(self, channel, quality='mp3_320k'):
         quality = self._network['stream']['quality'][quality]
@@ -427,7 +477,7 @@ class AudioAddict:
             'member_session[password]': password,
         }
         self._post('member_sessions', payload=payload, is_json=False,
-                   cache=self._ccache_file, cache_key='user')
+                   cache=self._ccache_file, cache_key='user', refresh=True)
         return self.is_active
 
     def add_listen_history(self, channel, track_id):
@@ -435,12 +485,12 @@ class AudioAddict:
         if channel_id is None:
             return None
 
-        return self._post('listen_history', channel_id=channel_id,
-                          track_id=track_id, audio_token=self.audio_token)
+        payload = {'channel_id': channel_id, 'track_id': track_id}
+        return self._post('listen_history', payload=payload)
 
     def follow_show(self, show):
         resp = self._post('members', self.member_id, 'followed_items', 'show',
-                          show, cache=None)
+                          show)
 
         # Invalidate all show cache
         cache = self._cache
@@ -471,17 +521,21 @@ class AudioAddict:
             fav['position'] = i
 
         resp = self._post('members', self.member_id, 'favorites', 'channels',
-                          payload={'favorites': favorites}, cache=None)
+                          payload={'favorites': favorites})
 
         self._update_cache(self._cache_file, 'favorites', favorites)
         return resp
+
+    def preferred_quality(self, quality_id):
+        return self._post('members', self.member_id, 'preferred_quality',
+                          quality_id=quality_id)
 
     #
     # --- Delete ---
     #
     def unfollow_show(self, show):
         resp = self._delete('members', self.member_id, 'followed_items',
-                            'show', show, cache=None)
+                            'show', show)
 
         # Invalidate all show cache
         cache = self._cache
