@@ -21,12 +21,12 @@ class Monitor(xbmc.Monitor):
         addon = xbmcaddon.Addon()
 
         if addon.getSettingInt('aa.quality') != self._quality:
-            utils.log('Quality setting changed.')
+            utils.logd('Quality setting changed.')
             quality_id = utils.get_quality_id(main.TEST_LOGIN_NETWORK)
             for network in addict.NETWORKS.keys():
                 aa = addict.AudioAddict(PROFILE_DIR, network)
                 if aa.is_premium:
-                    utils.log('Updating preferred quality for:', network)
+                    utils.logd('Updating preferred quality for:', network)
                     aa.preferred_quality(quality_id)
 
             self._quality = addon.getSettingInt('aa.quality')
@@ -79,12 +79,12 @@ def monitor_live(skip_shows=None):
                 chan = _show.get('channels', [])[0]
                 if (playing['network'] != network
                         or playing['channel'] != chan.get('key')):
-                    utils.log(
+                    utils.logd(
                         'Different network/channel playing, not tuning in.')
                     continue
 
                 if playing['live']:
-                    utils.log('Live stream already playing.')
+                    utils.logd('Live stream already playing.')
                     break
 
                 utils.log('Tuning in to live stream...')
@@ -97,12 +97,12 @@ def monitor_live(skip_shows=None):
 def hourly():
     # Clean up cache
     for network in addict.NETWORKS.keys():
-        utils.log('Invalidating cache for {}'.format(network))
+        utils.logd('Invalidating cache for {}'.format(network))
         aa = addict.AudioAddict.get(PROFILE_DIR, network)
         aa.invalidate_cache()
 
     # Update user information (like premium status etc.)
-    utils.log('Updating user information'.format(network))
+    utils.logd('Updating user information'.format(network))
     aa = addict.AudioAddict.get(PROFILE_DIR, main.TEST_LOGIN_NETWORK)
     aa.get_member_session()
 

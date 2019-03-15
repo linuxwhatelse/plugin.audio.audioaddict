@@ -29,6 +29,14 @@ def log(*args, **kwargs):
              level=level)
 
 
+def logd(*args, **kwargs):
+    log(*args, level=xbmc.LOGDEBUG)
+
+
+def logw(*args, **kwargs):
+    log(*args, level=xbmc.LOGWARNING)
+
+
 def notify(title, message='', icon=None, display_time=5000):
     if not icon:
         icon = ADDON.getAddonInfo('icon')

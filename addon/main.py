@@ -438,13 +438,13 @@ def play_channel(network, channel):
             utils.build_path('play', network, channel)))
         return
 
-    utils.log('Fetching tracklist from server...')
+    utils.logd('Fetching tracklist from server...')
     aa = addict.AudioAddict.get(PROFILE_DIR, network)
     with utils.busy_dialog():
         is_live, track = aa.next_track(channel, cache=False, pop=False,
                                        live=True)
 
-        utils.log('Activating first track: {}, is-live: {}'.format(
+        utils.logd('Activating first track: {}, is-live: {}'.format(
             track.get('id'), is_live))
         item_url = utils.build_path('track', network, channel, track.get('id'),
                                     is_live=is_live)
@@ -461,14 +461,18 @@ def play_channel(network, channel):
 @MPR.s_url('/track/<network>/<channel>/<track_id>/',
            type_cast={'is_live': bool})
 def resolve_track(network, channel, track_id, is_live=False):
-    utils.log('Resolving track:', track_id)
+    utils.logd('Resolving track:', track_id)
     aa = addict.AudioAddict.get(PROFILE_DIR, network)
 
     current_is_live, track = aa.next_track(channel, cache=True, pop=True,
                                            live=is_live)
 
-    utils.log('Resolved track: {}, is-live: {}'.format(
+    utils.logd('Resolved track: {}, is-live: {}'.format(
         track.get('id'), current_is_live))
+    if int(track_id) != track.get('id'):
+        utils.logw('Got unexpected track from cache!'
+                   'Expected {} but got {}'.format(track_id, track.get('id')))
+
     item = utils.build_track_item(track)
 
     xbmcplugin.setResolvedUrl(HANDLE, True, item)
@@ -476,16 +480,16 @@ def resolve_track(network, channel, track_id, is_live=False):
     offset = track.get('content', {}).get('offset', 0)
     if ADDON.getSettingBool('addon.seek_offset') and offset:
         playing = utils.get_playing()
-        if not playing or (playing['network'] != network
-                    and playing['channel'] != channel):
-            # Have at least 30 sec. left to prevent the track ending before the
-            # next one has been queued
+        if (not playing or playing['live'] or
+            (playing['network'] != network and playing['channel'] != channel)):
+            # Have at least 30 sec. left to prevent the track ending before
+            # the next one has been queued
             length = track.get('length')
             offset = min(length - 30, offset)
 
-            utils.log('Seeking to:', offset)
+            utils.logd('Seeking to:', offset)
             if not utils.seek_offset(offset):
-                utils.log('Seeking failed!')
+                utils.logd('Seeking failed!')
 
     aa.add_listen_history(channel, track_id)
 
@@ -494,7 +498,7 @@ def resolve_track(network, channel, track_id, is_live=False):
     if playlist.getposition() + 2 < playlist.size():
         return
 
-    utils.log('Adding another track to the playlist...')
+    utils.logd('Adding another track to the playlist...')
     is_live, track = aa.next_track(channel, cache=True, pop=False,
                                    live=not current_is_live)
 
@@ -503,7 +507,7 @@ def resolve_track(network, channel, track_id, is_live=False):
         utils.build_path('track', network, channel, track.get('id'),
                          is_live=is_live))
 
-    utils.log('Queuing track: {}, is-live: {}'.format(
+    utils.logd('Queuing track: {}, is-live: {}'.format(
         track.get('id'), is_live))
     playlist.add(item.getPath(), item)
 
@@ -521,10 +525,10 @@ def update_networks(network=None):
     diag.create(utils.translate(30312))
 
     quality_id = utils.get_quality_id(TEST_LOGIN_NETWORK)
-    utils.log('Got quality-id:', quality_id)
+    utils.logd('Got quality-id:', quality_id)
 
     for i, network in enumerate(networks):
-        utils.log('Updating network', network)
+        utils.logd('Updating network', network)
         aa = addict.AudioAddict.get(PROFILE_DIR, network)
 
         progress = i * 100 / len(networks)
@@ -534,7 +538,7 @@ def update_networks(network=None):
         aa.get_favorite_channels(refresh=True)
 
         if aa.is_premium:
-            utils.log('Setting preferred quality')
+            utils.logd('Setting preferred quality')
             aa.preferred_quality(quality_id)
 
     diag.update(100, utils.translate(30314))
@@ -606,7 +610,7 @@ def clear_cache():
 
 def run():
     url = sys.argv[0] + sys.argv[2]
-    utils.log(HANDLE, url)
+    utils.logd(HANDLE, url)
 
     aa = addict.AudioAddict.get(PROFILE_DIR, TEST_LOGIN_NETWORK)
 
