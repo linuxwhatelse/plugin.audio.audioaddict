@@ -116,61 +116,6 @@ def get_quality_id(network):
     return quality_id
 
 
-def next_track(network, channel, cache=True, pop=False, live=True):
-    aa = addict.AudioAddict.get(PROFILE_DIR, network)
-
-    is_live = False
-    track = None
-
-    if live:
-        now = addict.datetime_now()
-        for show in aa.get_live_shows(refresh=not cache):
-            channels = [
-                c for c in show.get('show', {}).get('channels', [])
-                if c.get('key') == channel
-            ]
-
-            if len(channels) == 0:
-                continue
-
-            end_at = addict.parse_datetime(show.get('end_at'))
-            if end_at < now:
-                break
-
-            track = show.get('tracks')[0]
-
-            time_left = (end_at - now).seconds
-            track['content']['offset'] = track.get('length') - time_left
-
-            is_live = True
-            break
-
-    if not track:
-        tracks_file = os.path.join(PROFILE_DIR, 'tracks.json')
-        channel_id = aa.get_channel_id(channel)
-
-        track_list = {}
-        if cache and os.path.exists(tracks_file):
-            with open(tracks_file, 'r') as f:
-                track_list = json.loads(f.read())
-
-        new = False
-        if (track_list.get('channel_id') != channel_id
-                or len(track_list.get('tracks', [])) < 1):
-            new = True
-            track_list = aa.get_track_list(channel)
-
-        track = track_list['tracks'][0]
-        if pop:
-            track_list['tracks'].pop(0)
-
-        if new or pop:
-            with open(tracks_file, 'w') as f:
-                f.write(json.dumps(track_list, indent=2))
-
-    return (is_live, track)
-
-
 def add_aa_art(item, elem, thumb_key='compact', fanart_key='default'):
     thumb = elem.get('images', {}).get(thumb_key)
     fanart = elem.get('images', {}).get(fanart_key, thumb)

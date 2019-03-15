@@ -438,9 +438,10 @@ def play_channel(network, channel):
         return
 
     utils.log('Fetching tracklist from server...')
+    aa = addict.AudioAddict.get(PROFILE_DIR, network)
     with utils.busy_dialog():
-        is_live, track = utils.next_track(network, channel, cache=False,
-                                          pop=False, live=True)
+        is_live, track = aa.next_track(channel, cache=False, pop=False,
+                                       live=True)
 
         utils.log('Activating first track: {}, is-live: {}'.format(
             track.get('id'), is_live))
@@ -462,8 +463,8 @@ def resolve_track(network, channel, track_id, is_live=False):
     utils.log('Resolving track:', track_id)
     aa = addict.AudioAddict.get(PROFILE_DIR, network)
 
-    current_is_live, track = utils.next_track(network, channel, cache=True,
-                                              pop=True, live=is_live)
+    current_is_live, track = aa.next_track(channel, cache=True, pop=True,
+                                           live=is_live)
 
     utils.log('Resolved track: {}, is-live: {}'.format(
         track.get('id'), current_is_live))
@@ -490,8 +491,8 @@ def resolve_track(network, channel, track_id, is_live=False):
         return
 
     utils.log('Adding another track to the playlist...')
-    is_live, track = utils.next_track(network, channel, cache=True, pop=False,
-                                      live=not current_is_live)
+    is_live, track = aa.next_track(channel, cache=True, pop=False,
+                                   live=not current_is_live)
 
     item = utils.build_track_item(track)
     item.setPath(

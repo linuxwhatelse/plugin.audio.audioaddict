@@ -6,6 +6,7 @@ import urllib
 from datetime import datetime
 
 import requests
+
 from dateutil.parser import parse
 from dateutil.tz import tzlocal
 
@@ -312,6 +313,52 @@ class AudioAddict:
         if os.path.exists(self._cache_file):
             os.remove(self._cache_file)
 
+    def next_track(self, channel, cache=True, pop=False, live=True):
+        is_live = False
+        track = None
+
+        if live:
+            now = datetime_now()
+            for show in self.get_live_shows():
+                channels = [
+                    c for c in show.get('show', {}).get('channels', [])
+                    if c.get('key') == channel
+                ]
+
+                if len(channels) == 0:
+                    continue
+
+                end_at = parse_datetime(show.get('end_at'))
+                if end_at < now:
+                    break
+
+                track = show.get('tracks')[0]
+
+                time_left = (end_at - now).seconds
+                track['content']['offset'] = track.get('length') - time_left
+
+                is_live = True
+                break
+
+        if not track:
+            channel_id = self.get_channel_id(channel)
+            track_list = self.get_track_list(channel, refresh=not cache)
+
+            refreshed = False
+            if (track_list.get('channel_id') != channel_id
+                    or len(track_list.get('tracks', [])) < 1):
+                refreshed = True
+                track_list = self.get_track_list(channel, refresh=True)
+
+            track = track_list['tracks'][0]
+            if pop:
+                track_list['tracks'].pop(0)
+
+            if refreshed or pop:
+                self._update_cache(self._cache_file, 'track_list', track_list)
+
+        return (is_live, track)
+
     #
     # --- Wrapper ---
     #
@@ -429,13 +476,14 @@ class AudioAddict:
                          cache_key='shows_upcoming', cache_time=10,
                          refresh=refresh)
 
-    def get_track_list(self, channel, tune_in=True):
+    def get_track_list(self, channel, tune_in=True, refresh=True):
         channel_id = self.get_channel_id(channel)
         if channel_id is None:
             return None
 
         return self._get('routines', 'channel', channel_id,
-                         tune_in=str(tune_in).lower(), cache=None)
+                         tune_in=str(tune_in).lower(), cache_key='track_list',
+                         refresh=refresh)
 
     def get_listen_history(self, channel):
         channel_id = self.get_channel_id(channel)
