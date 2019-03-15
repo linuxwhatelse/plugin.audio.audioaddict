@@ -277,11 +277,12 @@ def list_shows_schedule(network, page=1):
 
     items = []
     for show in shows:
-        start_at = addict.parse_datetime(show.get('start_at'))
         end_at = addict.parse_datetime(show.get('end_at'))
 
         if end_at < now:
             continue
+
+        start_at = addict.parse_datetime(show.get('start_at'))
 
         show = show.get('show', {})
         channel = show.get('channels', [])[0]

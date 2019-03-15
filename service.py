@@ -1,5 +1,6 @@
 import os
 import time
+from datetime import datetime
 
 import xbmc
 import xbmcaddon
@@ -86,9 +87,9 @@ def monitor_live(skip_shows=None):
                         'Different network/channel playing, not tuning in.')
                     continue
 
-                if url.query.get('is_live') == 'true':
+                if url.query.get('is_live').lower() == 'true':
                     utils.log('Live stream already playing.')
-                    continue
+                    break
 
                 utils.log('Tuning in to live stream...')
                 xbmc.executebuiltin('RunPlugin({})'.format(
@@ -116,13 +117,13 @@ if __name__ == '__main__':
     xbmcaddon.Addon().setSetting('aa.email', 'tadly90@gmail.com')
 
     skip_shows = []
-    hourly_last_run = 0
     while not monitor.abortRequested():
+        now = datetime.utcnow()
+
+        if monitor.waitForAbort(60 - now.second):
+            break
+
         skip_shows = monitor_live(skip_shows)
 
-        if hourly_last_run + 3600 < time.time():
-            hourly_last_run = time.time()
+        if now.minute == 15:
             hourly()
-
-        if monitor.waitForAbort(60):
-            break
