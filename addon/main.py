@@ -117,12 +117,16 @@ def list_channels(network, style=None, channels=None, do_list=True):
     #     for p in aa.get_currently_playing()
     # }
 
+    active = utils.get_playing()
     for channel in channels:
         item_url = utils.build_path('play', network, channel.get('key'))
 
         item = xbmcgui.ListItem(_enc(channel.get('name')))
         item.setPath(item_url)
         item = utils.add_aa_art(item, channel, 'default', 'compact')
+
+        if active and active['channel'] == channel.get('key'):
+            item.select(True)
 
         cmenu = []
         if channel.get('id') not in favorites:
@@ -274,6 +278,7 @@ def list_shows_schedule(network, page=1):
     followed_slugs = [s.get('slug') for s in followed_shows]
 
     now = addict.datetime_now()
+    active = utils.get_playing()
 
     items = []
     for show in shows:
@@ -289,6 +294,10 @@ def list_shows_schedule(network, page=1):
 
         item = utils.build_show_item(network, show, followed_slugs)
         item.setPath(utils.build_path('play', network, channel.get('key')))
+
+        if (active and active['live']
+                and active['channel'] == channel.get('key')):
+            item.select(True)
 
         if start_at < now or show.get('now_playing', False):
             label_prefix = utils.translate(30333)  # Live now
