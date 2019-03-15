@@ -6,7 +6,6 @@ import urllib
 from datetime import datetime
 
 import requests
-
 from dateutil.parser import parse
 from dateutil.tz import tzlocal
 
@@ -115,6 +114,7 @@ class AudioAddict:
 
     name = None
 
+    _cache_dir = None
     _cache_file = None
     _ccache_file = None
 
@@ -131,6 +131,7 @@ class AudioAddict:
         if not os.path.exists(cache_dir):
             os.makedirs(cache_dir)
 
+        self._cache_dir = cache_dir
         self._cache_file = os.path.join(cache_dir, network + '.json')
         self._ccache_file = os.path.join(cache_dir, 'common.json')
 
@@ -319,7 +320,7 @@ class AudioAddict:
 
         if live:
             now = datetime_now()
-            for show in self.get_live_shows():
+            for show in self.get_live_shows(refresh=True):
                 channels = [
                     c for c in show.get('show', {}).get('channels', [])
                     if c.get('key') == channel
@@ -330,7 +331,7 @@ class AudioAddict:
 
                 end_at = parse_datetime(show.get('end_at'))
                 if end_at < now:
-                    break
+                    continue
 
                 track = show.get('tracks')[0]
 
@@ -341,21 +342,25 @@ class AudioAddict:
                 break
 
         if not track:
+            cache_file = os.path.join(self._cache_dir, 'tracks.json')
+
             channel_id = self.get_channel_id(channel)
-            track_list = self.get_track_list(channel, refresh=not cache)
+            track_list = self.get_track_list(channel, refresh=not cache,
+                                             cache=cache_file)
 
             refreshed = False
             if (track_list.get('channel_id') != channel_id
                     or len(track_list.get('tracks', [])) < 1):
                 refreshed = True
-                track_list = self.get_track_list(channel, refresh=True)
+                track_list = self.get_track_list(channel, refresh=True,
+                                                 cache=cache_file)
 
             track = track_list['tracks'][0]
             if pop:
                 track_list['tracks'].pop(0)
 
             if refreshed or pop:
-                self._update_cache(self._cache_file, 'track_list', track_list)
+                self._update_cache(cache_file, 'track_list', track_list)
 
         return (is_live, track)
 
@@ -476,14 +481,14 @@ class AudioAddict:
                          cache_key='shows_upcoming', cache_time=10,
                          refresh=refresh)
 
-    def get_track_list(self, channel, tune_in=True, refresh=True):
+    def get_track_list(self, channel, tune_in=True, refresh=True, cache=None):
         channel_id = self.get_channel_id(channel)
         if channel_id is None:
             return None
 
         return self._get('routines', 'channel', channel_id,
-                         tune_in=str(tune_in).lower(), cache_key='track_list',
-                         refresh=refresh)
+                         cache_key='track_list', tune_in=str(tune_in).lower(),
+                         cache=cache, refresh=refresh)
 
     def get_listen_history(self, channel):
         channel_id = self.get_channel_id(channel)

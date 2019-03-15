@@ -475,14 +475,17 @@ def resolve_track(network, channel, track_id, is_live=False):
 
     offset = track.get('content', {}).get('offset', 0)
     if ADDON.getSettingBool('addon.seek_offset') and offset:
-        # Have at least 30 sec. left to prevent the track ending before the
-        # next one has been queued
-        length = track.get('length')
-        offset = min(length - 30, offset)
+        playing = utils.get_playing()
+        if not playing or (playing['network'] != network
+                    and playing['channel'] != channel):
+            # Have at least 30 sec. left to prevent the track ending before the
+            # next one has been queued
+            length = track.get('length')
+            offset = min(length - 30, offset)
 
-        utils.log('Seeking to:', offset)
-        if not utils.seek_offset(offset):
-            utils.log('Seeking failed!')
+            utils.log('Seeking to:', offset)
+            if not utils.seek_offset(offset):
+                utils.log('Seeking failed!')
 
     aa.add_listen_history(channel, track_id)
 

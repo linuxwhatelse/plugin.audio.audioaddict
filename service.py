@@ -72,28 +72,24 @@ def monitor_live(skip_shows=None):
                 if not filename:
                     continue
 
-                url = utils.parse_url(filename)
-                if url.netloc != ADDON_ID:
+                playing = utils.get_playing()
+                if not playing:
                     continue
-
-                if len(url.path) < 4:
-                    continue
-
-                _, _network, channel, track_id = url.path
 
                 chan = _show.get('channels', [])[0]
-                if _network != network or channel != chan.get('key'):
+                if (playing['network'] != network
+                        or playing['channel'] != chan.get('key')):
                     utils.log(
                         'Different network/channel playing, not tuning in.')
                     continue
 
-                if url.query.get('is_live').lower() == 'true':
+                if playing['live']:
                     utils.log('Live stream already playing.')
                     break
 
                 utils.log('Tuning in to live stream...')
                 xbmc.executebuiltin('RunPlugin({})'.format(
-                    utils.build_path('play', network, channel)))
+                    utils.build_path('play', network, playing['channel'])))
 
     return skip_shows
 
@@ -125,5 +121,5 @@ if __name__ == '__main__':
 
         skip_shows = monitor_live(skip_shows)
 
-        if now.minute == 15:
+        if now.minute == 0:
             hourly()

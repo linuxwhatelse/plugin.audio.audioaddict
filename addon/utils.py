@@ -13,6 +13,7 @@ from addon import HANDLE, addict
 DEFAULT_LOG_LEVEL = xbmc.LOGNOTICE
 
 ADDON = xbmcaddon.Addon()
+ADDON_ID = os.path.join(ADDON.getAddonInfo('id'))
 ADDON_DIR = xbmc.translatePath(ADDON.getAddonInfo('path'))
 PROFILE_DIR = xbmc.translatePath(os.path.join(ADDON.getAddonInfo('profile')))
 
@@ -85,6 +86,28 @@ def parse_url(url, base=None):
     url = url._replace(path=list(path_))
 
     return url
+
+
+def get_playing():
+    filename = xbmc.getInfoLabel('Player.Filenameandpath')
+    if not filename:
+        return None
+
+    url = parse_url(filename)
+    if url.netloc != ADDON_ID:
+        return None
+
+    if len(url.path) < 4:
+        return None
+
+    _, network, channel, track_id = url.path
+    live = url.query.get('is_live', 'false').lower() == 'true'
+    return {
+        'network': network,
+        'channel': channel,
+        'track_id': track_id,
+        'live': live
+    }
 
 
 def build_path(*args, **kwargs):
