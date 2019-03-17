@@ -478,11 +478,13 @@ def resolve_track(network, channel, track_id, is_live=False):
 
     utils.logd('Resolved track: {}, is-live: {}'.format(
         track.get('id'), current_is_live))
+
     if int(track_id) != track.get('id'):
         utils.logw('Got unexpected track from cache!'
                    'Expected {} but got {}'.format(track_id, track.get('id')))
 
-    item = utils.build_track_item(track)
+    album = '{} / {}'.format(aa.name, aa.get_channel_name(channel))
+    item = utils.build_track_item(track, album=album)
 
     xbmcplugin.setResolvedUrl(HANDLE, True, item)
 
@@ -511,7 +513,7 @@ def resolve_track(network, channel, track_id, is_live=False):
     is_live, track = aa.next_track(channel, cache=True, pop=False,
                                    live=not current_is_live)
 
-    item = utils.build_track_item(track)
+    item = utils.build_track_item(track, album=album)
     item.setPath(
         utils.build_path('track', network, channel, track.get('id'),
                          is_live=is_live))

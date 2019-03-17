@@ -189,7 +189,7 @@ def build_show_item(network, show, followed_slugs=None):
     return item
 
 
-def build_track_item(track, item_path=None):
+def build_track_item(track, item_path=None, album=None):
     asset = track.get('content', {}).get('assets', {})
     if asset:
         asset = asset[0]
@@ -212,6 +212,7 @@ def build_track_item(track, item_path=None):
             'mediatype': 'music',
             'artist': artist,
             'title': title,
+            'album': album,
             'duration': duration,
         })
 

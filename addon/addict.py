@@ -6,6 +6,7 @@ import urllib
 from datetime import datetime
 
 import requests
+
 from dateutil.parser import parse
 from dateutil.tz import tzlocal
 
@@ -306,6 +307,12 @@ class AudioAddict:
         for c in self.get_channels():
             if c['key'] == channel:
                 return c['id']
+        return None
+
+    def get_channel_name(self, channel):
+        for c in self.get_channels():
+            if c['key'] == channel:
+                return c['name']
         return None
 
     def logout(self):
