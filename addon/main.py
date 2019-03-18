@@ -450,8 +450,8 @@ def play_channel(network, channel):
     utils.logd('Fetching tracklist from server...')
     aa = addict.AudioAddict.get(PROFILE_DIR, network)
     with utils.busy_dialog():
-        is_live, track = aa.next_track(channel, cache=False, pop=False,
-                                       live=True)
+        is_live, track = aa.next_track(channel, tune_in=True, cache=False,
+                                       pop=False, live=True)
 
         utils.logd('Activating first track: {}, is-live: {}'.format(
             track.get('id'), is_live))
@@ -473,8 +473,8 @@ def resolve_track(network, channel, track_id, is_live=False):
     utils.logd('Resolving track:', track_id)
     aa = addict.AudioAddict.get(PROFILE_DIR, network)
 
-    current_is_live, track = aa.next_track(channel, cache=True, pop=True,
-                                           live=is_live)
+    current_is_live, track = aa.next_track(channel, tune_in=False, cache=True,
+                                           pop=True, live=is_live)
 
     utils.logd('Resolved track: {}, is-live: {}'.format(
         track.get('id'), current_is_live))
@@ -490,17 +490,14 @@ def resolve_track(network, channel, track_id, is_live=False):
 
     offset = track.get('content', {}).get('offset', 0)
     if ADDON.getSettingBool('addon.seek_offset') and offset:
-        playing = utils.get_playing()
-        if (not playing or playing['live'] or
-            (playing['network'] != network and playing['channel'] != channel)):
-            # Have at least 30 sec. left to prevent the track ending before
-            # the next one has been queued
-            length = track.get('length')
-            offset = min(length - 30, offset)
+        # Have at least 30 sec. left to prevent the track ending before
+        # the next one has been queued
+        length = track.get('length')
+        offset = min(length - 30, offset)
 
-            utils.logd('Seeking to:', offset)
-            if not utils.seek_offset(offset):
-                utils.logd('Seeking failed!')
+        utils.logd('Seeking to:', offset)
+        if not utils.seek_offset(offset):
+            utils.logd('Seeking failed!')
 
     aa.add_listen_history(channel, track_id)
 
@@ -510,8 +507,8 @@ def resolve_track(network, channel, track_id, is_live=False):
         return
 
     utils.logd('Adding another track to the playlist...')
-    is_live, track = aa.next_track(channel, cache=True, pop=False,
-                                   live=not current_is_live)
+    is_live, track = aa.next_track(channel, tune_in=False, cache=True,
+                                   pop=False, live=not current_is_live)
 
     item = utils.build_track_item(track, album=album)
     item.setPath(

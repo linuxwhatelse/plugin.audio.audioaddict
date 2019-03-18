@@ -321,7 +321,8 @@ class AudioAddict:
         if os.path.exists(self._cache_file):
             os.remove(self._cache_file)
 
-    def next_track(self, channel, cache=True, pop=False, live=True):
+    def next_track(self, channel, tune_in=True, cache=True, pop=False,
+                   live=True):
         is_live = False
         track = None
 
@@ -359,8 +360,8 @@ class AudioAddict:
             if (track_list.get('channel_id') != channel_id
                     or len(track_list.get('tracks', [])) < 1):
                 refreshed = True
-                track_list = self.get_track_list(channel, refresh=True,
-                                                 cache=cache_file)
+                track_list = self.get_track_list(
+                    channel, tune_in, refresh=True, cache=cache_file)
 
             track = track_list['tracks'][0]
             if pop:
