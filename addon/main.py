@@ -483,7 +483,7 @@ def resolve_track(network, channel, track_id, is_live=False):
         utils.logw('Got unexpected track from cache!'
                    'Expected {} but got {}'.format(track_id, track.get('id')))
 
-    album = '{} / {}'.format(aa.name, aa.get_channel_name(channel))
+    album = '{} / {}'.format(aa.name, _enc(aa.get_channel_name(channel)))
     item = utils.build_track_item(track, album=album)
 
     xbmcplugin.setResolvedUrl(HANDLE, True, item)
