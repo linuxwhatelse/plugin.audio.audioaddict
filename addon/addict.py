@@ -328,7 +328,7 @@ class AudioAddict:
 
         if live:
             now = datetime_now()
-            for show in self.get_live_shows(refresh=True):
+            for show in self.get_live_shows():
                 channels = [
                     c for c in show.get('show', {}).get('channels', [])
                     if c.get('key') == channel
@@ -342,6 +342,8 @@ class AudioAddict:
                     continue
 
                 track = show.get('tracks')[0]
+                if not track.get('content', {}).get('assets', {}):
+                    track = self.get_track(track.get('id'))
 
                 time_left = (end_at - now).seconds
                 track['content']['offset'] = track.get('length') - time_left
