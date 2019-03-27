@@ -278,7 +278,7 @@ def list_shows_schedule(network, page=1):
     followed_slugs = [s.get('slug') for s in followed_shows]
 
     now = addict.datetime_now()
-    active = utils.get_playing()
+    active = utils.get_playing() or {}
 
     items = []
     for show in shows:
@@ -295,12 +295,12 @@ def list_shows_schedule(network, page=1):
         item = utils.build_show_item(network, show, followed_slugs)
         item.setPath(utils.build_path('play', network, channel.get('key')))
 
-        if (active and active['live']
-                and active['channel'] == channel.get('key')):
-            item.select(True)
-
         if start_at < now or show.get('now_playing', False):
             label_prefix = utils.translate(30333)  # Live now
+
+            if (active.get('live', False)
+                    and active.get('channel') == channel.get('key')):
+                item.select(True)
         else:
             label_prefix = '{} - {}'.format(
                 start_at.strftime('%H:%M'), end_at.strftime('%H:%M'))
