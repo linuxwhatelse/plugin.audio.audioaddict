@@ -480,7 +480,7 @@ def resolve_track(network, channel, track_id, is_live=False):
         track.get('id'), current_is_live))
 
     if int(track_id) != track.get('id'):
-        utils.logw('Got unexpected track from cache!'
+        utils.logw('Got unexpected track from cache! '
                    'Expected {} but got {}'.format(track_id, track.get('id')))
 
     album = '{} / {}'.format(aa.name, _enc(aa.get_channel_name(channel)))

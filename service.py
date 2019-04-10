@@ -56,7 +56,8 @@ def monitor_live(skip_shows=None):
             if show.get('id') in skip_shows:
                 continue
 
-            if addict.parse_datetime(show.get('end_at')) < now:
+            end_at = addict.parse_datetime(show.get('end_at'))
+            if end_at < now:
                 continue
 
             skip_shows.append(show.get('id'))
@@ -84,6 +85,11 @@ def monitor_live(skip_shows=None):
 
                 if playing['live']:
                     utils.logd('Live stream already playing.')
+                    break
+
+                time_left = (end_at - now).seconds
+                if time_left < 2:
+                    utils.log('Less than 2 minutes left, not tuning in.')
                     break
 
                 utils.log('Tuning in to live stream...')

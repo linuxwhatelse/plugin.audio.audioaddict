@@ -346,6 +346,9 @@ class AudioAddict:
                     track = self.get_track(track.get('id'))
 
                 time_left = (end_at - now).seconds
+                if time_left < 2:
+                    break
+
                 track['content']['offset'] = track.get('length') - time_left
 
                 is_live = True
