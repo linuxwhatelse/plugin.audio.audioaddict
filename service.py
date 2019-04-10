@@ -88,7 +88,8 @@ def monitor_live(skip_shows=None):
 
                 utils.log('Tuning in to live stream...')
                 xbmc.executebuiltin('RunPlugin({})'.format(
-                    utils.build_path('play', network, playing['channel'])))
+                    utils.build_path('play', network, playing['channel'],
+                                     live=True)))
 
     return skip_shows
 

@@ -437,8 +437,8 @@ def search(network, filter_=None, query=None, page=1):
     utils.list_items(items)
 
 
-@MPR.s_url('/play/<network>/<channel>/')
-def play_channel(network, channel):
+@MPR.s_url('/play/<network>/<channel>/', type_cast={'live': bool})
+def play_channel(network, channel, live=False):
     # Item activated through e.g. Chorus2
     # If we'd call "play" within this "session", kodi would crash.
     if HANDLE != -1:
@@ -451,7 +451,7 @@ def play_channel(network, channel):
     aa = addict.AudioAddict.get(PROFILE_DIR, network)
     with utils.busy_dialog():
         is_live, track = aa.next_track(channel, tune_in=True, cache=False,
-                                       pop=False, live=True)
+                                       pop=False, live=live)
 
         utils.logd('Activating first track: {}, is-live: {}'.format(
             track.get('id'), is_live))
