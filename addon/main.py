@@ -89,8 +89,8 @@ def list_styles(network):
     for style in filters:
         item = xbmcgui.ListItem('{} ({})'.format(
             _enc(style.get('name')), len(style.get('channels', []))))
-        items.append((utils.build_path('channels', network, style.get('key')),
-                      item, True))
+        items.append((utils.build_path('channels', network,
+                                       style.get('key')), item, True))
 
     utils.list_items(items)
 
@@ -123,6 +123,7 @@ def list_channels(network, style=None, channels=None, do_list=True):
 
         item = xbmcgui.ListItem(_enc(channel.get('name')))
         item.setPath(item_url)
+        item.setProperty('IsPlayable', 'true')
         item = utils.add_aa_art(item, channel, 'default', 'compact')
 
         if active and active['channel'] == channel.get('key'):
@@ -140,10 +141,10 @@ def list_channels(network, style=None, channels=None, do_list=True):
                 utils.build_path('unfavorite', network, channel.get('key'),
                                  channel_name=_enc(channel.get('name'))))))
 
-        cmenu.append((utils.translate(30330),
-                      'Container.Update({}, return)'.format(
-                          utils.build_path('listen_history', network,
-                                           channel.get('key')))))
+        cmenu.append(
+            (utils.translate(30330), 'Container.Update({}, return)'.format(
+                utils.build_path('listen_history', network,
+                                 channel.get('key')))))
 
         item.addContextMenuItems(cmenu, True)
         items.append((item_url, item, False))
@@ -235,8 +236,8 @@ def list_shows_styles(network, field):
 
         item_url = utils.build_path('shows', network, 'facets',
                                     facet.get('name'))
-        items.append((item_url, xbmcgui.ListItem(_enc(facet.get('label'))),
-                      True))
+        items.append(
+            (item_url, xbmcgui.ListItem(_enc(facet.get('label'))), True))
 
     utils.list_items(items)
 
@@ -298,12 +299,14 @@ def list_shows_schedule(network, page=1):
         if start_at < now or show.get('now_playing', False):
             label_prefix = utils.translate(30333)  # Live now
 
+            item.setProperty('IsPlayable', 'true')
+
             if (active.get('live', False)
                     and active.get('channel') == channel.get('key')):
                 item.select(True)
         else:
-            label_prefix = '{} - {}'.format(
-                start_at.strftime('%H:%M'), end_at.strftime('%H:%M'))
+            label_prefix = '{} - {}'.format(start_at.strftime('%H:%M'),
+                                            end_at.strftime('%H:%M'))
 
         item.setLabel('[B]{}[/B] - {} [I]({})[/I]'.format(
             label_prefix, _enc(show.get('name')), _enc(channel.get('name'))))
@@ -439,32 +442,19 @@ def search(network, filter_=None, query=None, page=1):
 
 @MPR.s_url('/play/<network>/<channel>/', type_cast={'live': bool})
 def play_channel(network, channel, live=False):
-    # Item activated through e.g. Chorus2
-    # If we'd call "play" within this "session", kodi would crash.
-    if HANDLE != -1:
-        xbmcplugin.setResolvedUrl(HANDLE, False, xbmcgui.ListItem())
-        xbmc.executebuiltin('RunPlugin({})'.format(
-            utils.build_path('play', network, channel)))
-        return
-
     utils.logd('Fetching tracklist from server...')
     aa = addict.AudioAddict.get(PROFILE_DIR, network)
-    with utils.busy_dialog():
-        is_live, track = aa.next_track(channel, tune_in=True, cache=False,
-                                       pop=False, live=live)
 
-        utils.logd('Activating first track: {}, is-live: {}'.format(
-            track.get('id'), is_live))
-        item_url = utils.build_path('track', network, channel, track.get('id'),
-                                    is_live=is_live)
+    is_live, track = aa.next_track(channel, tune_in=True, cache=False,
+                                   pop=False, live=live)
 
-        item = utils.build_track_item(track, item_url)
+    utils.logd('Activating first track: {}, is-live: {}'.format(
+        track.get('id'), is_live))
+    item_url = utils.build_path('track', network, channel, track.get('id'),
+                                is_live=is_live)
 
-        playlist = xbmc.PlayList(xbmc.PLAYLIST_MUSIC)
-        playlist.clear()
-        playlist.add(item.getPath(), item)
-
-        xbmc.Player().play()
+    item = utils.build_track_item(track, item_url)
+    xbmcplugin.setResolvedUrl(HANDLE, True, item)
 
 
 @MPR.s_url('/track/<network>/<channel>/<track_id>/',
@@ -515,8 +505,8 @@ def resolve_track(network, channel, track_id, is_live=False):
         utils.build_path('track', network, channel, track.get('id'),
                          is_live=is_live))
 
-    utils.logd('Queuing track: {}, is-live: {}'.format(
-        track.get('id'), is_live))
+    utils.logd('Queuing track: {}, is-live: {}'.format(track.get('id'),
+                                                       is_live))
     playlist.add(item.getPath(), item)
 
 
@@ -563,8 +553,8 @@ def setup(notice=True, update_cache=False):
     ADDON.setSetting('aa.email', '')
 
     if notice:
-        xbmcgui.Dialog().textviewer(
-            utils.translate(30300), utils.translate(30301))
+        xbmcgui.Dialog().textviewer(utils.translate(30300),
+                                    utils.translate(30301))
 
     k = xbmc.Keyboard(aa.member.get('email', ''), utils.translate(30319))
     k.doModal()
@@ -579,8 +569,8 @@ def setup(notice=True, update_cache=False):
     password = k.getText()
 
     if not aa.login(username, password):
-        if xbmcgui.Dialog().yesno(
-                utils.translate(30309), utils.translate(30310)):
+        if xbmcgui.Dialog().yesno(utils.translate(30309),
+                                  utils.translate(30310)):
             return setup(False, update_cache)
         return False
 
