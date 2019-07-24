@@ -177,13 +177,13 @@ def build_show_item(network, show, followed_slugs=None):
     if (show.get('following', False) or show.get('slug') in followed_slugs):
         # Unfollow show
         cmenu.append((translate(30335), 'RunPlugin({})'.format(
-            build_path('unfollow', network, show.get('slug'), show_name=_enc(
-                show.get('name'))))))
+            build_path('unfollow', network, show.get('slug'),
+                       show_name=_enc(show.get('name'))))))
     else:
         # Follow show
         cmenu.append((translate(30334), 'RunPlugin({})'.format(
-            build_path('follow', network, show.get('slug'), show_name=_enc(
-                show.get('name'))))))
+            build_path('follow', network, show.get('slug'),
+                       show_name=_enc(show.get('name'))))))
 
     item.addContextMenuItems(cmenu)
     return item

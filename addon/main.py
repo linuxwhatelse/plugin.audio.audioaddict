@@ -445,16 +445,28 @@ def play_channel(network, channel, live=False):
     utils.logd('Fetching tracklist from server...')
     aa = addict.AudioAddict.get(PROFILE_DIR, network)
 
-    is_live, track = aa.next_track(channel, tune_in=True, cache=False,
-                                   pop=False, live=live)
+    with utils.busy_dialog():
+        is_live, track = aa.next_track(channel, tune_in=True, cache=False,
+                                       pop=False, live=live)
 
-    utils.logd('Activating first track: {}, is-live: {}'.format(
-        track.get('id'), is_live))
-    item_url = utils.build_path('track', network, channel, track.get('id'),
-                                is_live=is_live)
+        utils.logd('Activating first track: {}, is-live: {}'.format(
+            track.get('id'), is_live))
+        item_url = utils.build_path('track', network, channel, track.get('id'),
+                                    is_live=is_live)
 
-    item = utils.build_track_item(track, item_url)
-    xbmcplugin.setResolvedUrl(HANDLE, True, item)
+        item = utils.build_track_item(track, item_url)
+
+        utils.logd('Managing playlist')
+        playlist = xbmc.PlayList(xbmc.PLAYLIST_MUSIC)
+        playlist.clear()
+        playlist.add(item.getPath(), item)
+
+        xbmcplugin.setResolvedUrl(HANDLE, True, item)
+
+        # Activated through UI, needs explicit play
+        if HANDLE == -1:
+            utils.logd('Triggering explicit play')
+            xbmc.Player().play()
 
 
 @MPR.s_url('/track/<network>/<channel>/<track_id>/',
