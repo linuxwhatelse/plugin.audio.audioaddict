@@ -116,8 +116,6 @@ def hourly():
 if __name__ == '__main__':
     monitor = Monitor()
 
-    xbmcaddon.Addon().setSetting('aa.email', 'tadly90@gmail.com')
-
     skip_shows = []
     while not monitor.abortRequested():
         now = datetime.utcnow()
