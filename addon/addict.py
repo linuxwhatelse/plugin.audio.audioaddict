@@ -172,7 +172,10 @@ class AudioAddict:
             return {}
 
         with open(cache_file, 'r') as f:
-            data = json.loads(f.read())
+            try:
+                data = json.loads(f.read())
+            except ValueError:
+                data = {}
 
         self.__cache[cache_file] = data
         return data
