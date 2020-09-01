@@ -106,8 +106,6 @@ def get_playing():
 
     network, channel, track_id, playlist_id = (None, None, None, None)
 
-    log('tis be the url ur looking for', url.path, url.query)
-    # ['channel', 'track', 'difm', 'djmixes', '2993181']
     if url.path[0] == 'channel':
         _, __, network, channel, track_id = url.path
         track_id = int(track_id)
