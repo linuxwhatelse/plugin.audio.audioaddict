@@ -86,6 +86,21 @@ NETWORKS = collections.OrderedDict([
             },
         },
     }),
+    ('zenradio', {
+        'name': 'ZenRadio',
+        'has_shows': False,
+        'has_playlists': False,
+        'url': 'https://www.zenradio.com',
+        'api_url': 'https://api.audioaddict.com/v1/zenradio',
+        'stream': {
+            'url': 'http://prem2.zenradio.com:80/{channel}{quality}?{listen_key}',
+            'quality': {
+                'aac_64k': '_low',
+                'aac_128k': '_aac',
+                'mp3_320k': '',
+            },
+        },
+    }),
 ])
 
 
