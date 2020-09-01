@@ -104,16 +104,27 @@ def get_playing():
     if url.netloc != ADDON_ID:
         return None
 
-    if len(url.path) < 4:
+    network, channel, track_id, playlist_id = (None, None, None, None)
+
+    log('tis be the url ur looking for', url.path, url.query)
+    # ['channel', 'track', 'difm', 'djmixes', '2993181']
+    if url.path[0] == 'channel':
+        _, __, network, channel, track_id = url.path
+        track_id = int(track_id)
+
+    elif url.path[0] == 'playlist':
+        _, __, network, playlist_id, track_id = url.path
+        playlist_id, track_id = int(playlist_id), int(track_id)
+
+    else:
         return None
 
-    _, network, channel, track_id = url.path
-    live = url.query.get('is_live', 'false').lower() == 'true'
     return {
         'network': network,
         'channel': channel,
         'track_id': track_id,
-        'live': live
+        'playlist_id': playlist_id,
+        'is_live': url.query.get('is_live', 'false').lower() == 'true'
     }
 
 
@@ -189,6 +200,59 @@ def build_show_item(network, show, followed_slugs=None):
     return item
 
 
+def build_playlist_item(network, playlist, followed_slugs=None):
+    if not followed_slugs:
+        followed_slugs = []
+
+    item = xbmcgui.ListItem(_enc(playlist.get('name')))
+    item.setPath(
+        build_path('play', 'playlist', network, playlist.get('id'),
+                   playlist_name=playlist.get('name')))
+    item = add_aa_art(item, playlist, 'default')
+
+    # Add context menu item(s)
+    cmenu = []
+    if (playlist.get('following', False)
+            or playlist.get('slug') in followed_slugs):
+        # Unfollow playlist
+        cmenu.append((translate(30335), 'RunPlugin({})'.format(
+            build_path('unfollow', network, playlist.get('slug'),
+                       show_name=_enc(playlist.get('name'))))))
+    else:
+        # Follow playlist
+        cmenu.append((translate(30334), 'RunPlugin({})'.format(
+            build_path('follow', network, playlist.get('slug'),
+                       show_name=_enc(playlist.get('name'))))))
+
+    # Convert strings like "6h 11m"
+    duration = 0
+    for u in playlist.get('duration', '').split(' '):
+        if u.endswith('d'):
+            duration += int(u[:1]) * 24 * 60 * 60
+
+        if u.endswith('h'):
+            duration += int(u[:1]) * 60 * 60
+
+        if u.endswith('m'):
+            duration += int(u[:1]) * 60
+
+    item.setInfo(
+        'music',
+        {
+            'mediatype': 'music',
+            'artist': playlist.get('curator', {}).get('name'),
+            # 'title': playlist.get('name'),
+            # 'album': playlist.get('name'),
+            'duration': duration,
+        })
+
+    item.setProperty('IsPlayable', 'false')
+    item.setProperty('IsInternetStream', 'true')
+
+    item.addContextMenuItems(cmenu)
+    return item
+
+
 def build_track_item(track, item_path=None, album=None):
     asset = track.get('content', {}).get('assets', {})
     if asset:
@@ -207,6 +271,7 @@ def build_track_item(track, item_path=None, album=None):
         item.setPath(addict.convert_url(asset.get('url')))
 
     item = add_aa_art(item, track, 'default')
+
     item.setInfo(
         'music', {
             'mediatype': 'music',
@@ -216,7 +281,7 @@ def build_track_item(track, item_path=None, album=None):
             'duration': duration,
         })
 
-    item.setProperty('IsPlayable', 'true')
+    item.setProperty('IsPlayable', 'false')
     item.setProperty('IsInternetStream', 'true')
 
     return item

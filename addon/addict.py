@@ -14,6 +14,7 @@ NETWORKS = collections.OrderedDict([
     ('difm', {
         'name': 'Digitally Imported',
         'has_shows': True,
+        'has_playlists': True,
         'url': 'https://www.di.fm',
         'api_url': 'https://api.audioaddict.com/v1/di',
         'stream': {
@@ -28,6 +29,7 @@ NETWORKS = collections.OrderedDict([
     ('radiotunes', {
         'name': 'RadioTunes',
         'has_shows': False,
+        'has_playlists': False,
         'url': 'https://www.radiotunes.com',
         'api_url': 'https://api.audioaddict.com/v1/radiotunes',
         'stream': {
@@ -42,6 +44,7 @@ NETWORKS = collections.OrderedDict([
     ('jazzradio', {
         'name': 'JAZZRADIO.com',
         'has_shows': False,
+        'has_playlists': False,
         'url': 'https://www.jazzradio.com',
         'api_url': 'https://api.audioaddict.com/v1/jazzradio',
         'stream': {
@@ -56,6 +59,7 @@ NETWORKS = collections.OrderedDict([
     ('rockradio', {
         'name': 'ROCKRADIO.com',
         'has_shows': False,
+        'has_playlists': False,
         'url': 'https://www.rockradio.com',
         'api_url': 'https://api.audioaddict.com/v1/rockradio',
         'stream': {
@@ -70,6 +74,7 @@ NETWORKS = collections.OrderedDict([
     ('classicalradio', {
         'name': 'ClassicalRadio.com',
         'has_shows': False,
+        'has_playlists': False,
         'url': 'https://www.classicalradio.com',
         'api_url': 'https://api.audioaddict.com/v1/classicalradio',
         'stream': {
@@ -106,6 +111,10 @@ def convert_url(url, **kwargs):
         url = 'https:' + url
 
     return url
+
+
+def log(*args):
+    print('[plugin.audio.audioaddict]', [str(a) for a in args])
 
 
 class AudioAddict:
@@ -168,17 +177,20 @@ class AudioAddict:
                 or self._read_cache(self._ccache_file))
 
     def _read_cache(self, cache_file):
+        cls_cache = self.__cache.get(cache_file, {})
+        if cls_cache:
+            return cls_cache
+
         if not os.path.exists(cache_file):
             return {}
 
         with open(cache_file, 'r') as f:
             try:
-                data = json.loads(f.read())
+                self.__cache[cache_file] = json.loads(f.read())
             except ValueError:
-                data = {}
+                return {}
 
-        self.__cache[cache_file] = data
-        return data
+        return self.__cache[cache_file]
 
     def _write_cache(self, cache_file, cache):
         self.__cache[cache_file] = cache
@@ -211,15 +223,10 @@ class AudioAddict:
             cache_key = '_'.join(paths)
 
         if not refresh and cache and os.path.exists(cache):
-            _cache = (self.__cache.get(cache, {}).get(cache_key, {})
-                      or self._read_cache(cache).get(cache_key, {}))
+            _cache = self._read_cache(cache).get(cache_key, {})
             expires_on = _cache.get('expires_on')
-            if _cache:
-                if not expires_on:
-                    return _cache.get('data')
-                else:
-                    if expires_on > time.time():
-                        return _cache.get('data')
+            if _cache and (not expires_on or expires_on > time.time()):
+                return _cache.get('data')
 
         paths = '/'.join([urllib.quote_plus(p) for p in paths])
         url = '/'.join([self._network['api_url'].rstrip('/'), paths])
@@ -237,6 +244,7 @@ class AudioAddict:
                 data = {'json': payload}
 
             self._response = method(url, auth=auth, **data)
+
             cache_data = self._response.json()
             if cache:
                 self._update_cache(cache, cache_key, cache_data, cache_time)
@@ -252,7 +260,7 @@ class AudioAddict:
 
     def _post(self, *paths, **kwargs):
         cache = kwargs.get('cache', None)
-        if cache:
+        if 'cache' in kwargs:
             kwargs.pop('cache')
         return self._api_call(requests.post, paths, auth=('mobile', 'apps'),
                               cache=cache, **kwargs)
@@ -324,8 +332,8 @@ class AudioAddict:
         if os.path.exists(self._cache_file):
             os.remove(self._cache_file)
 
-    def next_track(self, channel, tune_in=True, cache=True, pop=False,
-                   live=True):
+    def next_channel_track(self, channel, tune_in=True, refresh=False,
+                           pop=False, live=True):
         is_live = False
         track = None
 
@@ -358,27 +366,47 @@ class AudioAddict:
                 break
 
         if not track:
-            cache_file = os.path.join(self._cache_dir, 'tracks.json')
+            cache_file = os.path.join(self._cache_dir, 'channel_tracks.json')
 
             channel_id = self.get_channel_id(channel)
-            track_list = self.get_track_list(channel, refresh=not cache,
+            track_list = self.get_track_list(channel, refresh=refresh,
                                              cache=cache_file)
 
-            refreshed = False
+            is_new = False
             if (track_list.get('channel_id') != channel_id
                     or len(track_list.get('tracks', [])) < 1):
-                refreshed = True
-                track_list = self.get_track_list(
-                    channel, tune_in, refresh=True, cache=cache_file)
+                is_new = True
+                track_list = self.get_track_list(channel, tune_in,
+                                                 refresh=True,
+                                                 cache=cache_file)
 
-            track = track_list['tracks'][0]
-            if pop:
-                track_list['tracks'].pop(0)
+            track = (track_list['tracks'].pop(0)
+                     if pop else track_list['tracks'][0])
 
-            if refreshed or pop:
-                self._update_cache(cache_file, 'track_list', track_list)
+            if is_new or pop:
+                self._update_cache(cache_file, 'channel_tracks', track_list)
 
         return (is_live, track)
+
+    def next_playlist_track(self, playlist_id, refresh=False, pop=True):
+        cache_file = os.path.join(self._cache_dir, 'playlist_tracks.json')
+
+        track_list = self.get_playlist_tracks(playlist_id, refresh=refresh,
+                                              cache=cache_file)
+
+        is_new = False
+
+        if (track_list.get('id') != playlist_id
+                or len(track_list.get('tracks', [])) == 0):
+            is_new = True
+            track_list = self.get_playlist_tracks(playlist_id, refresh=True)
+
+        track = track_list['tracks'].pop(0) if pop else track_list['tracks'][0]
+
+        if is_new or refresh or pop:
+            self._update_cache(cache_file, 'playlist_tracks', track_list)
+
+        return track
 
     #
     # --- Wrapper ---
@@ -503,8 +531,9 @@ class AudioAddict:
             return None
 
         return self._get('routines', 'channel', channel_id,
-                         cache_key='track_list', tune_in=str(tune_in).lower(),
-                         cache=cache, refresh=refresh)
+                         cache_key='channel_tracks',
+                         tune_in=str(tune_in).lower(), cache=cache,
+                         refresh=refresh)
 
     def get_listen_history(self, channel):
         channel_id = self.get_channel_id(channel)
@@ -530,6 +559,27 @@ class AudioAddict:
 
         return self._get('channels', cache_key=cache_key, cache_time=10,
                          **query)
+
+    def get_playlists(self, order_by, page=1, per_page=25):
+        cache_key = 'search_playlists_{}'.format(order_by.lower())
+        query = {'order_by': order_by, 'page': page, 'per_page': per_page}
+
+        return self._get('playlists', cache_key=cache_key, cache_time=10,
+                         **query)
+
+    def get_playlists_popular(self, page=1, per_page=25):
+        return self.get_playlists('popularity_sort desc', page, per_page)
+
+    def get_playlists_newest(self, page=1, per_page=25):
+        return self.get_playlists('newest_sort desc', page, per_page)
+
+    def get_playlists_followed(self, page=1, per_page=25):
+        query = {'order_by': 'follow_date', 'page': page, 'per_page': per_page}
+        return {
+            'results': self._get('members', self.member_id, 'followed_items',
+                                 'playlist', cache_key='followed_playlists',
+                                 cache_time=10, **query)
+        }
 
     def get_premium_stream_url(self, channel, quality='mp3_320k'):
         quality = self._network['stream']['quality'][quality]
@@ -597,6 +647,11 @@ class AudioAddict:
     def preferred_quality(self, quality_id):
         return self._post('members', self.member_id, 'preferred_quality',
                           quality_id=quality_id)
+
+    def get_playlist_tracks(self, playlist_id, refresh=True, cache=None):
+        return self._post('playlists', playlist_id, 'play',
+                          cache_key='playlist_tracks', cache=cache,
+                          refresh=refresh)
 
     #
     # --- Delete ---

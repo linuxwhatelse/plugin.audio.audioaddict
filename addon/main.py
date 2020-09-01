@@ -61,6 +61,11 @@ def list_network(network):
         items.append((utils.build_path('shows', network, 'schedule'),
                       xbmcgui.ListItem(utils.translate(30332)), True))
 
+    # Playlists
+    if aa.network['has_playlists']:
+        items.append((utils.build_path('playlists', network),
+                      xbmcgui.ListItem(utils.translate(30338)), True))
+
     # Search
     items.append((utils.build_path('search', network),
                   xbmcgui.ListItem(utils.translate(30323)), True))
@@ -113,20 +118,23 @@ def list_channels(network, style=None, channels=None, do_list=True):
     # If I ever manage to get label2 to show, that's what we're going to
     # put there...
     # playing = {
-    #     p['channel_id']: p['track']
+    #     p['channel_id']: '{} - {}'.format(_enc(p['track']['display_artist']),
+    #                                       _enc(p['track']['display_title']))
     #     for p in aa.get_currently_playing()
     # }
 
-    active = utils.get_playing()
+    active = utils.get_playing() or {}
     for channel in channels:
-        item_url = utils.build_path('play', network, channel.get('key'))
+        item_url = utils.build_path('play', 'channel', network,
+                                    channel.get('key'))
 
         item = xbmcgui.ListItem(_enc(channel.get('name')))
         item.setPath(item_url)
-        item.setProperty('IsPlayable', 'true')
+        # item.setLabel2(playing[channel.get('id')])
+        item.setProperty('IsPlayable', 'false')
         item = utils.add_aa_art(item, channel, 'default', 'compact')
 
-        if active and active['channel'] == channel.get('key'):
+        if active.get('channel') == channel.get('key'):
             item.select(True)
 
         cmenu = []
@@ -280,7 +288,7 @@ def list_shows_schedule(network, page=1):
 
     now = addict.datetime_now()
     active = utils.get_playing() or {}
-
+    utils.log('active item', active)
     items = []
     for show in shows:
         end_at = addict.parse_datetime(show.get('end_at'))
@@ -294,14 +302,16 @@ def list_shows_schedule(network, page=1):
         channel = show.get('channels', [])[0]
 
         item = utils.build_show_item(network, show, followed_slugs)
-        item.setPath(utils.build_path('play', network, channel.get('key')))
+        item.setPath(
+            utils.build_path('play', 'channel', network, channel.get('key'),
+                             live=show.get('now_playing', False)))
 
-        if start_at < now or show.get('now_playing', False):
+        if show.get('now_playing', False):
             label_prefix = utils.translate(30333)  # Live now
 
-            item.setProperty('IsPlayable', 'true')
+            item.setProperty('IsPlayable', 'false')
 
-            if (active.get('live', False)
+            if (active.get('is_live', False)
                     and active.get('channel') == channel.get('key')):
                 item.select(True)
         else:
@@ -312,6 +322,67 @@ def list_shows_schedule(network, page=1):
             label_prefix, _enc(show.get('name')), _enc(channel.get('name'))))
 
         items.append((item.getPath(), item, False))
+
+    utils.list_items(items)
+
+
+@MPR.s_url('/playlists/<network>/')
+def list_playlist_menu(network):
+    aa = addict.AudioAddict.get(PROFILE_DIR, network)
+    xbmcplugin.setPluginCategory(HANDLE, aa.name)
+
+    items = []
+
+    # Popular Playlists
+    items.append((utils.build_path('playlists', network, 'popular'),
+                  xbmcgui.ListItem(utils.translate(30339)), True))
+
+    # Newest Playlists
+    items.append((utils.build_path('playlists', network, 'newest'),
+                  xbmcgui.ListItem(utils.translate(30340)), True))
+
+    # Followed Playlists
+    items.append((utils.build_path('playlists', network, 'followed'),
+                  xbmcgui.ListItem(utils.translate(30341)), True))
+
+    utils.list_items(items)
+
+
+@MPR.s_url('/playlists/<network>/<sort>')
+def list_playlists(network, sort, page=1):
+    aa = addict.AudioAddict.get(PROFILE_DIR, network)
+    xbmcplugin.setContent(HANDLE, 'songs')
+    xbmcplugin.setPluginCategory(HANDLE, aa.name)
+
+    # ToDo shows/playlists per page
+    per_page = ADDON.getSettingInt('aa.shows_per_page')
+
+    if sort == 'popular':
+        callback = aa.get_playlists_popular
+    elif sort == 'newest':
+        callback = aa.get_playlists_newest
+    elif sort == 'followed':
+        callback = aa.get_playlists_followed
+    else:
+        return
+
+    playlists = callback(page=page, per_page=per_page).get('results', [])
+
+    items = []
+    active = utils.get_playing() or {}
+    for pl in playlists:
+        item = utils.build_playlist_item(network, pl)
+        items.append((item.getPath(), item, False))
+
+        if active.get('playlist_id') == pl.get('id'):
+            item.select(True)
+
+    if len(items) >= per_page:
+        items.append((
+            utils.build_path('playlists', network, sort, page=page + 1),
+            xbmcgui.ListItem(utils.translate(30318)),
+            True,
+        ))
 
     utils.list_items(items)
 
@@ -357,7 +428,7 @@ def favorite(network, channel, channel_name=''):
 
 
 @MPR.s_url('/unfavorite/<network>/<channel>/')
-def favorite(network, channel, channel_name=''):
+def unfavorite(network, channel, channel_name=''):
     aa = addict.AudioAddict.get(PROFILE_DIR, network)
 
     with utils.busy_dialog():
@@ -440,19 +511,20 @@ def search(network, filter_=None, query=None, page=1):
     utils.list_items(items)
 
 
-@MPR.s_url('/play/<network>/<channel>/', type_cast={'live': bool})
+@MPR.s_url('/play/channel/<network>/<channel>/', type_cast={'live': bool})
 def play_channel(network, channel, live=False):
     utils.logd('Fetching tracklist from server...')
     aa = addict.AudioAddict.get(PROFILE_DIR, network)
 
     with utils.busy_dialog():
-        is_live, track = aa.next_track(channel, tune_in=True, cache=False,
-                                       pop=False, live=live)
+        is_live, track = aa.next_channel_track(channel, tune_in=True,
+                                               refresh=True, pop=False,
+                                               live=live)
 
         utils.logd('Activating first track: {}, is-live: {}'.format(
             track.get('id'), is_live))
-        item_url = utils.build_path('track', network, channel, track.get('id'),
-                                    is_live=is_live)
+        item_url = utils.build_path('channel', 'track', network, channel,
+                                    track.get('id'), is_live=is_live)
 
         item = utils.build_track_item(track, item_url)
 
@@ -468,20 +540,26 @@ def play_channel(network, channel, live=False):
             utils.logd('Triggering explicit play')
             xbmc.Player().play()
 
+        # TODO: Set listitem active if possible
+        xbmc.executebuiltin('Container.Refresh')
 
-@MPR.s_url('/track/<network>/<channel>/<track_id>/',
-           type_cast={'is_live': bool})
-def resolve_track(network, channel, track_id, is_live=False):
+
+@MPR.s_url('/channel/track/<network>/<channel>/<track_id>/', type_cast={
+    'track_id': int,
+    'is_live': bool
+})
+def resolve_channel_track(network, channel, track_id, is_live=False):
     utils.logd('Resolving track:', track_id)
     aa = addict.AudioAddict.get(PROFILE_DIR, network)
 
-    current_is_live, track = aa.next_track(channel, tune_in=False, cache=True,
-                                           pop=True, live=is_live)
+    current_is_live, track = aa.next_channel_track(channel, tune_in=False,
+                                                   refresh=False, pop=True,
+                                                   live=is_live)
 
     utils.logd('Resolved track: {}, is-live: {}'.format(
         track.get('id'), current_is_live))
 
-    if int(track_id) != track.get('id'):
+    if track_id != track.get('id'):
         utils.logw('Got unexpected track from cache! '
                    'Expected {} but got {}'.format(track_id, track.get('id')))
 
@@ -508,17 +586,91 @@ def resolve_track(network, channel, track_id, is_live=False):
     if playlist.getposition() + 2 < playlist.size():
         return
 
+    # e.g "Yatse" clears the playlist, removing this entry.
+    # As such we wait a little before queuing another track
+    time.sleep(1)
     utils.logd('Adding another track to the playlist...')
-    is_live, track = aa.next_track(channel, tune_in=False, cache=True,
-                                   pop=False, live=not current_is_live)
+    is_live, track = aa.next_channel_track(channel, tune_in=False,
+                                           refresh=False, pop=False,
+                                           live=not current_is_live)
 
-    item = utils.build_track_item(track, album=album)
-    item.setPath(
-        utils.build_path('track', network, channel, track.get('id'),
-                         is_live=is_live))
+    item = utils.build_track_item(
+        track,
+        utils.build_path('channel', 'track', network, channel, track.get('id'),
+                         is_live=is_live), album=album)
 
     utils.logd('Queuing track: {}, is-live: {}'.format(track.get('id'),
                                                        is_live))
+    playlist.add(item.getPath(), item)
+
+
+@MPR.s_url('/play/playlist/<network>/<playlist_id>/',
+           type_cast={'playlist_id': int})
+def play_playlist(network, playlist_id, playlist_name=''):
+    utils.logd('Fetching tracklist from server...')
+    aa = addict.AudioAddict.get(PROFILE_DIR, network)
+
+    with utils.busy_dialog():
+        track = aa.next_playlist_track(playlist_id, pop=False)
+        item_url = utils.build_path('playlist', 'track', network, playlist_id,
+                                    track.get('id'),
+                                    playlist_name=playlist_name)
+
+        item = utils.build_track_item(track, item_url)
+
+        utils.logd('Managing playlist')
+        playlist = xbmc.PlayList(xbmc.PLAYLIST_MUSIC)
+        playlist.clear()
+        playlist.add(item.getPath(), item)
+        playlist.getposition
+
+        xbmcplugin.setResolvedUrl(HANDLE, True, item)
+
+        # Activated through UI, needs explicit play
+        if HANDLE == -1:
+            utils.logd('Triggering explicit play')
+            xbmc.Player().play()
+
+
+@MPR.s_url('/playlist/track/<network>/<playlist_id>/<track_id>', type_cast={
+    'playlist_id': int,
+    'track_id': int
+})
+def resolve_playlist_track(network, playlist_id, track_id, playlist_name=''):
+    utils.logd('Resolving track:', track_id)
+    aa = addict.AudioAddict.get(PROFILE_DIR, network)
+
+    track = aa.next_playlist_track(playlist_id, refresh=False, pop=True)
+
+    utils.logd('Resolved track: {}'.format(track.get('id')))
+
+    if track_id != track.get('id'):
+        utils.logw('Got unexpected track from cache! '
+                   'Expected {} but got {}'.format(track_id, track.get('id')))
+
+    album = '{} / {}'.format(aa.name, _enc(playlist_name))
+    item = utils.build_track_item(track, album=album)
+
+    xbmcplugin.setResolvedUrl(HANDLE, True, item)
+
+    # Queue another track if it's the last one playing
+    playlist = xbmc.PlayList(xbmc.PLAYLIST_MUSIC)
+    if playlist.getposition() + 2 < playlist.size():
+        return
+
+    # e.g "Yatse" clears the playlist, removing this entry.
+    # As such we wait a little before queuing another track
+    time.sleep(1)
+    utils.logd('Adding another track to the playlist...')
+    track = aa.next_playlist_track(playlist_id, refresh=False, pop=False)
+
+    item = utils.build_track_item(
+        track,
+        utils.build_path('playlist', 'track', network, playlist_id,
+                         track.get('id'), playlist_name=playlist_name),
+        album=album)
+
+    utils.logd('Queuing track: {}'.format(track.get('id')))
     playlist.add(item.getPath(), item)
 
 
