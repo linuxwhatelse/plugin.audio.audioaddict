@@ -1,6 +1,5 @@
 import os
-import urllib
-import urlparse
+from urllib.parse import urlparse, parse_qsl, unquote_plus, urlencode
 from contextlib import contextmanager
 
 import xbmc
@@ -9,7 +8,7 @@ import xbmcgui
 import xbmcplugin
 from addon import HANDLE, addict
 
-DEFAULT_LOG_LEVEL = xbmc.LOGNOTICE
+DEFAULT_LOG_LEVEL = xbmc.LOGINFO
 
 ADDON = xbmcaddon.Addon()
 ADDON_ID = os.path.join(ADDON.getAddonInfo('id'))
@@ -18,7 +17,8 @@ PROFILE_DIR = xbmc.translatePath(os.path.join(ADDON.getAddonInfo('profile')))
 
 
 def _enc(val):
-    return val.encode('utf-8')
+    '''Legacy from python2'''
+    return val
 
 
 def log(*args, **kwargs):
@@ -81,13 +81,13 @@ def seek_offset(offset, timeout=5, interval=0.1):
 
 
 def parse_url(url, base=None):
-    url = urlparse.urlparse(url)
+    url = urlparse(url)
 
-    params = dict(urlparse.parse_qsl(url.query))
+    params = dict(parse_qsl(url.query))
     url = url._replace(query=params)
 
-    path_ = filter(
-        None, [urllib.unquote_plus(e) for e in url.path.strip('/').split('/')])
+    path_ = filter(None,
+                   [unquote_plus(e) for e in url.path.strip('/').split('/')])
     if base and not path_:
         path_ = [base]
     url = url._replace(path=list(path_))
@@ -127,11 +127,10 @@ def get_playing():
 
 
 def build_path(*args, **kwargs):
-    # args = '/'.join([urllib.quote_plus(_enc(str(e))) for e in args])
     args = '/'.join([_enc(str(e)) for e in args])
     url = 'plugin://{}/{}'.format(ADDON.getAddonInfo('id'), args)
 
-    kwargs = urllib.urlencode(kwargs)
+    kwargs = urlencode(kwargs)
     if kwargs:
         url = '{}?{}'.format(url, kwargs)
 

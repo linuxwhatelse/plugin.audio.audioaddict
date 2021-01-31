@@ -2,13 +2,15 @@ import os
 from datetime import datetime
 
 import xbmc
+import xbmcvfs
 import xbmcaddon
 from addon import addict, main, utils
 
 ADDON = xbmcaddon.Addon()
 
 ADDON_ID = os.path.join(ADDON.getAddonInfo('id'))
-PROFILE_DIR = xbmc.translatePath(os.path.join(ADDON.getAddonInfo('profile')))
+PROFILE_DIR = xbmcvfs.translatePath(os.path.join(
+    ADDON.getAddonInfo('profile')))
 
 
 class Monitor(xbmc.Monitor):
@@ -108,7 +110,7 @@ def hourly():
         aa.invalidate_cache()
 
     # Update user information (like premium status etc.)
-    utils.logd('Updating user information'.format(network))
+    utils.logd('Updating user information')
     aa = addict.AudioAddict.get(PROFILE_DIR, main.TEST_LOGIN_NETWORK)
     aa.get_member_session()
 

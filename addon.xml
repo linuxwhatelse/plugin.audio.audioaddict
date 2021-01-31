@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <addon id="plugin.audio.audioaddict"
        name="AudioAddict"
-       version="0.0.0"
+       version="0.1.0"
        provider-name="linuxwhatelse">
 
     <requires>
-        <import addon="xbmc.python" version="2.25.0"/>
-        <import addon="script.module.requests" version="2.18.4.1"/>
-        <import addon="script.module.dateutil" version="2.7.3"/>
-        <import addon="script.module.lwe_mapper" version="1.2.5"/>
+        <import addon="xbmc.python" version="3.0.0"/>
+        <import addon="script.module.requests" version="2.22.0"/>
+        <import addon="script.module.dateutil" version="2.8.1"/>
+        <import addon="script.module.lwe_mapper" version="1.3.0"/>
     </requires>
 
     <extension point="xbmc.python.pluginsource" library="default.py">
@@ -31,6 +31,7 @@ Brands powered by AudioAddict's solutions:
   - JAZZRADIO.com (https://jazzradio.com)
   - ROCKRADIO.com (https://rockradio.com)
   - ClassicalRadio.com (https://classicalradio.com)
+  - ZenRadio (https://www.zenradio.com/)
 
 A premium subscription is required!
         </description>

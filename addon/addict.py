@@ -2,8 +2,8 @@ import collections
 import json
 import os
 import time
-import urllib
 from datetime import datetime
+from urllib.parse import quote_plus, urlencode
 
 import requests
 
@@ -118,7 +118,7 @@ def convert_url(url, **kwargs):
 
     url = url.split('{?')[0]
 
-    query = urllib.urlencode(kwargs)
+    query = urlencode(kwargs)
     if query:
         url += '?{}'.format(query)
 
@@ -243,13 +243,13 @@ class AudioAddict:
             if _cache and (not expires_on or expires_on > time.time()):
                 return _cache.get('data')
 
-        paths = '/'.join([urllib.quote_plus(p) for p in paths])
+        paths = '/'.join([quote_plus(p) for p in paths])
         url = '/'.join([self._network['api_url'].rstrip('/'), paths])
 
         if 'api_key' not in query and self.api_key:
             query['api_key'] = self.api_key
 
-        query = urllib.urlencode(query)
+        query = urlencode(query)
         if query:
             url += '?{}'.format(query)
 

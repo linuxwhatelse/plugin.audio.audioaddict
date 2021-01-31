@@ -3,6 +3,7 @@ import sys
 import time
 
 import xbmc
+import xbmcvfs
 import xbmcaddon
 import xbmcgui
 import xbmcplugin
@@ -13,8 +14,9 @@ from mapper import Mapper
 MPR = Mapper.get()
 ADDON = xbmcaddon.Addon()
 
-ADDON_DIR = xbmc.translatePath(ADDON.getAddonInfo('path'))
-PROFILE_DIR = xbmc.translatePath(os.path.join(ADDON.getAddonInfo('profile')))
+ADDON_DIR = xbmcvfs.translatePath(ADDON.getAddonInfo('path'))
+PROFILE_DIR = xbmcvfs.translatePath(os.path.join(
+    ADDON.getAddonInfo('profile')))
 
 TEST_LOGIN_NETWORK = 'difm'
 
@@ -24,7 +26,7 @@ TEST_LOGIN_NETWORK = 'difm'
 def list_networks():
     items = []
 
-    for key, data in addict.NETWORKS.iteritems():
+    for key, data in addict.NETWORKS.items():
         item = xbmcgui.ListItem(data['name'])
         item.setArt({
             'thumb': os.path.join(ADDON_DIR, 'resources', 'assets',
@@ -693,7 +695,7 @@ def update_networks(network=None):
         utils.logd('Updating network', network)
         aa = addict.AudioAddict.get(PROFILE_DIR, network)
 
-        progress = i * 100 / len(networks)
+        progress = i * 100 // len(networks)
         diag.update(progress, utils.translate(30313).format(aa.name))
 
         aa.get_channels(refresh=True)
