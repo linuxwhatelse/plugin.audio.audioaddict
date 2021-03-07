@@ -128,7 +128,7 @@ def list_channels(network, style=None, channels=None, do_list=True):
     active = utils.get_playing() or {}
     for channel in channels:
         item_url = utils.build_path('play', 'channel', network,
-                                    channel.get('key'))
+                                    channel.get('key'), live=True)
 
         item = xbmcgui.ListItem(_enc(channel.get('name')))
         item.setPath(item_url)
@@ -520,7 +520,6 @@ def play_channel(network, channel, live=False):
 
     with utils.busy_dialog():
         is_live, track = aa.next_channel_track(channel, tune_in=True,
-                                               refresh=True, pop=False,
                                                live=live)
 
         utils.logd('Activating first track: {}, is-live: {}'.format(
@@ -554,16 +553,10 @@ def resolve_channel_track(network, channel, track_id, is_live=False):
     utils.logd('Resolving track:', track_id)
     aa = addict.AudioAddict.get(PROFILE_DIR, network)
 
-    current_is_live, track = aa.next_channel_track(channel, tune_in=False,
-                                                   refresh=False, pop=True,
-                                                   live=is_live)
-
-    utils.logd('Resolved track: {}, is-live: {}'.format(
-        track.get('id'), current_is_live))
-
-    if track_id != track.get('id'):
-        utils.logw('Got unexpected track from cache! '
-                   'Expected {} but got {}'.format(track_id, track.get('id')))
+    if is_live:
+        track = aa.get_live_show(channel)
+    else:
+        track = aa.get_track(track_id)
 
     album = '{} / {}'.format(aa.name, _enc(aa.get_channel_name(channel)))
     item = utils.build_track_item(track, album=album)
@@ -593,8 +586,7 @@ def resolve_channel_track(network, channel, track_id, is_live=False):
     time.sleep(1)
     utils.logd('Adding another track to the playlist...')
     is_live, track = aa.next_channel_track(channel, tune_in=False,
-                                           refresh=False, pop=False,
-                                           live=not current_is_live)
+                                           live=not is_live)
 
     item = utils.build_track_item(
         track,
@@ -613,7 +605,7 @@ def play_playlist(network, playlist_id, playlist_name=''):
     aa = addict.AudioAddict.get(PROFILE_DIR, network)
 
     with utils.busy_dialog():
-        track = aa.next_playlist_track(playlist_id, pop=False)
+        track = aa.next_playlist_track(playlist_id)
         item_url = utils.build_path('playlist', 'track', network, playlist_id,
                                     track.get('id'),
                                     playlist_name=playlist_name)
@@ -642,13 +634,8 @@ def resolve_playlist_track(network, playlist_id, track_id, playlist_name=''):
     utils.logd('Resolving track:', track_id)
     aa = addict.AudioAddict.get(PROFILE_DIR, network)
 
-    track = aa.next_playlist_track(playlist_id, refresh=False, pop=True)
-
+    track = aa.get_track(track_id)
     utils.logd('Resolved track: {}'.format(track.get('id')))
-
-    if track_id != track.get('id'):
-        utils.logw('Got unexpected track from cache! '
-                   'Expected {} but got {}'.format(track_id, track.get('id')))
 
     album = '{} / {}'.format(aa.name, _enc(playlist_name))
     item = utils.build_track_item(track, album=album)
@@ -664,7 +651,7 @@ def resolve_playlist_track(network, playlist_id, track_id, playlist_name=''):
     # As such we wait a little before queuing another track
     time.sleep(1)
     utils.logd('Adding another track to the playlist...')
-    track = aa.next_playlist_track(playlist_id, refresh=False, pop=False)
+    track = aa.next_playlist_track(playlist_id)
 
     item = utils.build_track_item(
         track,

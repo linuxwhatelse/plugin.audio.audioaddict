@@ -347,8 +347,8 @@ class AudioAddict:
         if os.path.exists(self._cache_file):
             os.remove(self._cache_file)
 
-    def next_channel_track(self, channel, tune_in=True, refresh=False,
-                           pop=False, live=True):
+    def next_channel_track(self, channel, tune_in=True, refresh=True,
+                           live=True):
         is_live = False
         track = None
 
@@ -381,45 +381,42 @@ class AudioAddict:
                 break
 
         if not track:
-            cache_file = os.path.join(self._cache_dir, 'channel_tracks.json')
-
-            channel_id = self.get_channel_id(channel)
-            track_list = self.get_track_list(channel, refresh=refresh,
-                                             cache=cache_file)
-
-            is_new = False
-            if (track_list.get('channel_id') != channel_id
-                    or len(track_list.get('tracks', [])) < 1):
-                is_new = True
-                track_list = self.get_track_list(channel, tune_in,
-                                                 refresh=True,
-                                                 cache=cache_file)
-
-            track = (track_list['tracks'].pop(0)
-                     if pop else track_list['tracks'][0])
-
-            if is_new or pop:
-                self._update_cache(cache_file, 'channel_tracks', track_list)
+            track_list = self.get_track_list(channel, tune_in, refresh=True)
+            track = track_list['tracks'][0]
 
         return (is_live, track)
 
-    def next_playlist_track(self, playlist_id, refresh=False, pop=True):
-        cache_file = os.path.join(self._cache_dir, 'playlist_tracks.json')
+    def next_playlist_track(self, playlist_id):
+        track_list = self.get_playlist_tracks(playlist_id)
+        return track_list['tracks'][0]
 
-        track_list = self.get_playlist_tracks(playlist_id, refresh=refresh,
-                                              cache=cache_file)
+    def get_live_show(self, channel):
+        track = None
+        now = datetime_now()
+        for show in self.get_live_shows():
+            channels = [
+                c for c in show.get('show', {}).get('channels', [])
+                if c.get('key') == channel
+            ]
 
-        is_new = False
+            if len(channels) == 0:
+                continue
 
-        if (track_list.get('id') != playlist_id
-                or len(track_list.get('tracks', [])) == 0):
-            is_new = True
-            track_list = self.get_playlist_tracks(playlist_id, refresh=True)
+            end_at = parse_datetime(show.get('end_at'))
+            if end_at < now:
+                continue
 
-        track = track_list['tracks'].pop(0) if pop else track_list['tracks'][0]
+            track = show.get('tracks')[0]
+            if not track.get('content', {}).get('assets', {}):
+                track = self.get_track(track.get('id'))
 
-        if is_new or refresh or pop:
-            self._update_cache(cache_file, 'playlist_tracks', track_list)
+            time_left = (end_at - now).seconds
+            if time_left < 2:
+                break
+
+            track['content']['offset'] = track.get('length') - time_left
+
+            break
 
         return track
 
