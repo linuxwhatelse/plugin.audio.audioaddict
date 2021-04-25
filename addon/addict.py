@@ -289,8 +289,8 @@ class AudioAddict:
 
     def invalidate_cache(self):
         cache = self._read_cache(self._cache_file)
-        for key in cache.keys():
-            expires_on = cache[key].get('expires_on')
+        for key, val in cache.items():
+            expires_on = val.get('expires_on')
             if expires_on and expires_on < time.time():
                 del cache[key]
 
@@ -627,7 +627,7 @@ class AudioAddict:
 
         # Invalidate all show cache
         cache = self._cache
-        for key in self._cache.keys():
+        for key, val in self._cache.items():
             if key.startswith('shows_'):
                 del cache[key]
 
@@ -677,7 +677,7 @@ class AudioAddict:
 
         # Invalidate all show cache
         cache = self._cache
-        for key in self._cache.keys():
+        for key, val in self._cache.items():
             if key.startswith('shows_'):
                 del cache[key]
 
