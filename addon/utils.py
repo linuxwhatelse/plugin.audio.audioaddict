@@ -6,14 +6,15 @@ import xbmc
 import xbmcaddon
 import xbmcgui
 import xbmcplugin
+import xbmcvfs
 from addon import HANDLE, addict
 
 DEFAULT_LOG_LEVEL = xbmc.LOGINFO
 
 ADDON = xbmcaddon.Addon()
 ADDON_ID = os.path.join(ADDON.getAddonInfo('id'))
-ADDON_DIR = xbmc.translatePath(ADDON.getAddonInfo('path'))
-PROFILE_DIR = xbmc.translatePath(os.path.join(ADDON.getAddonInfo('profile')))
+ADDON_DIR = xbmcvfs.translatePath(ADDON.getAddonInfo('path'))
+PROFILE_DIR = xbmcvfs.translatePath(os.path.join(ADDON.getAddonInfo('profile')))
 
 
 def _enc(val):
