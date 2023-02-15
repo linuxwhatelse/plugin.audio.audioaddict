@@ -14,7 +14,8 @@ DEFAULT_LOG_LEVEL = xbmc.LOGINFO
 ADDON = xbmcaddon.Addon()
 ADDON_ID = os.path.join(ADDON.getAddonInfo('id'))
 ADDON_DIR = xbmcvfs.translatePath(ADDON.getAddonInfo('path'))
-PROFILE_DIR = xbmcvfs.translatePath(os.path.join(ADDON.getAddonInfo('profile')))
+PROFILE_DIR = xbmcvfs.translatePath(os.path.join(
+    ADDON.getAddonInfo('profile')))
 
 
 def _enc(val):
@@ -234,18 +235,10 @@ def build_playlist_item(network, playlist, followed_slugs=None):
         if u.endswith('m'):
             duration += int(u[:1]) * 60
 
-    item.setInfo(
-        'music',
-        {
-            'mediatype': 'music',
-            'artist': playlist.get('curator', {}).get('name'),
-            # 'title': playlist.get('name'),
-            # 'album': playlist.get('name'),
-            'duration': duration,
-        })
-
-    item.setProperty('IsPlayable', 'false')
-    item.setProperty('IsInternetStream', 'true')
+    tag = item.getMusicInfoTag()
+    tag.setMediaType('music')
+    tag.setArtist(playlist.get('curator', {}).get('name'))
+    tag.setDuration(duration)
 
     item.addContextMenuItems(cmenu)
     return item
@@ -270,17 +263,12 @@ def build_track_item(track, item_path=None, album=None):
 
     item = add_aa_art(item, track, 'default')
 
-    item.setInfo(
-        'music', {
-            'mediatype': 'music',
-            'artist': artist,
-            'title': title,
-            'album': album,
-            'duration': duration,
-        })
-
-    item.setProperty('IsPlayable', 'false')
-    item.setProperty('IsInternetStream', 'true')
+    tag = item.getMusicInfoTag()
+    tag.setMediaType('music')
+    tag.setArtist(artist)
+    tag.setTitle(title)
+    tag.setAlbum(album)
+    tag.setDuration(duration)
 
     return item
 
