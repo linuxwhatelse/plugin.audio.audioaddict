@@ -528,22 +528,24 @@ def play_channel(network, channel, live=False):
         item_url = utils.build_path('channel', 'track', network, channel,
                                     track.get('id'), is_live=is_live)
 
-        item = utils.build_track_item(track, item_url)
+        # Stop playback because otherwise the explicite .play inside
+        # `resolve_channel_track` would not work
+        xbmc.Player().stop()
 
-        utils.logd('Managing playlist')
+        utils.logd('Clearing playlist')
         playlist = xbmc.PlayList(xbmc.PLAYLIST_MUSIC)
         playlist.clear()
-        playlist.add(item.getPath(), item)
 
+        # `item_url` points to an addon internal url, not a resolved one.
+        #
+        item = utils.build_track_item(track, item_url)
         xbmcplugin.setResolvedUrl(HANDLE, True, item)
 
-        # Activated through UI, needs explicit play
+        # Activated through Kodi UI, needs explicit play
         if HANDLE == -1:
             utils.logd('Triggering explicit play')
-            xbmc.Player().play()
-
-        # TODO: Set listitem active if possible
-        xbmc.executebuiltin('Container.Refresh')
+            playlist.add(item.getPath(), item)
+            xbmc.Player().play(playlist)
 
 
 @MPR.s_url('/channel/track/<network>/<channel>/<track_id>/', type_cast={
@@ -604,6 +606,12 @@ def resolve_channel_track(network, channel, track_id, is_live=False):
     utils.logd('Queuing track: {}, is-live: {}'.format(track.get('id'),
                                                        is_live))
     playlist.add(item.getPath(), item)
+
+    # If activated through JSON-RPCs `Player.Open`, we have to trigger the
+    # explicit play here where `item` has an actual resolved url.
+    if not xbmc.Player().isPlaying():
+        utils.logd('Triggering explicit play...')
+        xbmc.Player().play(playlist)
 
 
 @MPR.s_url('/play/playlist/<network>/<playlist_id>/',
