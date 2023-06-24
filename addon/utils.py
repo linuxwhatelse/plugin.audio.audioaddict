@@ -235,10 +235,14 @@ def build_playlist_item(network, playlist, followed_slugs=None):
         if u.endswith('m'):
             duration += int(u[:1]) * 60
 
-    tag = item.getMusicInfoTag()
-    tag.setMediaType('music')
-    tag.setArtist(playlist.get('curator', {}).get('name'))
-    tag.setDuration(duration)
+    # tag = item.getMusicInfoTag()
+    # tag.setMediaType('music')
+    # tag.setArtist(playlist.get('curator', {}).get('name'))
+    # tag.setDuration(duration)
+    item.setInfo('music', {
+        'artist': playlist.get('curator', {}).get('name'),
+        'duration': duration,
+    })
 
     item.addContextMenuItems(cmenu)
     return item
@@ -256,6 +260,12 @@ def build_track_item(track, item_path=None, album=None):
     duration = track.get('length')
 
     item = xbmcgui.ListItem('{} - {}'.format(artist, title))
+    item.setInfo('music', {
+        'artist': artist,
+        'album': album,
+        'title': title,
+        'duration': duration,
+    })
     if item_path:
         item.setPath(item_path)
     else:
@@ -263,12 +273,12 @@ def build_track_item(track, item_path=None, album=None):
 
     item = add_aa_art(item, track, 'default')
 
-    tag = item.getMusicInfoTag()
-    tag.setMediaType('music')
-    tag.setArtist(artist)
-    tag.setTitle(title)
-    tag.setAlbum(album)
-    tag.setDuration(duration)
+    # tag = item.getMusicInfoTag()
+    # tag.setMediaType('music')
+    # tag.setArtist(artist)
+    # tag.setTitle(title)
+    # tag.setAlbum(album)
+    # tag.setDuration(duration)
 
     return item
 
