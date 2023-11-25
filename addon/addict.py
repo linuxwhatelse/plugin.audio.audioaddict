@@ -109,7 +109,10 @@ def datetime_now():
 
 
 def parse_datetime(val):
-    return parse(val).astimezone(tzlocal())
+    try:
+        return parse(val).astimezone(tzlocal())
+    except Exception:
+        return None
 
 
 def convert_url(url, **kwargs):
@@ -364,6 +367,10 @@ class AudioAddict:
                     continue
 
                 end_at = parse_datetime(show.get('end_at'))
+
+                if not end_at:
+                    continue
+
                 if end_at < now:
                     continue
 
@@ -455,7 +462,10 @@ class AudioAddict:
 
         shows = []
         for up in self.get_upcoming(refresh=refresh):
-            start_at = parse(up.get('start_at'))
+            start_at = parse_datetime(up.get('start_at'))
+            if not start_at:
+                continue
+
             if start_at > now:
                 continue
 
