@@ -132,7 +132,7 @@ if __name__ == "__main__":
         if monitor.waitForAbort(60 - now.second):
             break
 
-        skip_shows = skip_shows
+        skip_shows = monitor_live(skip_shows)
 
         if now.minute == 0:
             hourly()
