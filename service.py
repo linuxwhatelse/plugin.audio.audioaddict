@@ -60,6 +60,9 @@ def monitor_live(skip_shows=None):
                 continue
 
             end_at = addict.parse_datetime(show.get("end_at"))
+            if not end_at:
+                continue
+
             if end_at < now:
                 continue
 
