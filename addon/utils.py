@@ -284,10 +284,14 @@ def build_playlist_item(network, playlist, followed_slugs=None):
     # tag.setMediaType('music')
     # tag.setArtist(playlist.get('curator', {}).get('name'))
     # tag.setDuration(duration)
+    artist = playlist.get("name")
+    if playlist.get("curator"):
+        artist = playlist.get("curator").get("name")
+
     item.setInfo(
         "music",
         {
-            "artist": playlist.get("curator", {}).get("name"),
+            "artist": artist,
             "duration": duration,
         },
     )
