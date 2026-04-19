@@ -3,6 +3,7 @@ import json
 import os
 import time
 from datetime import datetime
+from typing import Dict, Self
 from urllib.parse import quote_plus, urlencode
 
 import requests
@@ -155,7 +156,7 @@ def log(*args):
 
 
 class AudioAddict:
-    __instances = {}
+    __instances: Dict[str, "AudioAddict"] = {}
 
     data = None
 
@@ -185,7 +186,7 @@ class AudioAddict:
         self._network = NETWORKS[network]
 
     @classmethod
-    def get(cls, cache_dir, network):
+    def get(cls, cache_dir, network) -> Self:
         key = cache_dir + network
         if key not in cls.__instances:
             cls.__instances[key] = cls(cache_dir, network)
