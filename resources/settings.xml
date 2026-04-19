@@ -7,8 +7,10 @@
         <setting label="30104" id="aa.email" type="text" enable="false"/>
         <setting type="sep"/>
         <setting label="30100" id="view.fanart" type="bool" default="true"/>
+        <!--
         <setting label="30107" id="addon.notify_live" type="bool" default="true"/>
         <setting label="30108" id="addon.tune_in_live" type="bool" default="true"/>
+        -->
         <setting label="30113" id="addon.seek_offset" type="bool" default="false"/>
         <setting type="sep"/>
         <setting label="30109" id="aa.quality" type="select" lvalues="30110|30111|30112"/>
